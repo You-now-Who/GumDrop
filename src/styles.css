@@ -1,0 +1,229 @@
+/* Clean & Bold Gumdrop Extension CSS */
+
+/* Reset and base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Layout utilities */
+.w-80 { width: 20rem; }
+.h-96 { height: 24rem; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.w-10 { width: 2.5rem; }
+.h-10 { height: 2.5rem; }
+.w-32 { width: 8rem; }
+.h-32 { height: 8rem; }
+.w-24 { width: 6rem; }
+.h-24 { height: 6rem; }
+.w-8 { width: 2rem; }
+.h-8 { height: 2rem; }
+.min-h-0 { min-height: 0; }
+
+/* Flexbox utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1 1 0%; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+
+/* Spacing utilities */
+.p-4 { padding: 1rem; }
+.p-3 { padding: 0.75rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-2 { margin-top: 0.5rem; }
+.pt-3 { padding-top: 0.75rem; }
+
+/* Gap utilities */
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-2 { gap: 0.5rem; }
+
+/* Position utilities */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.top-0 { top: 0; }
+.right-0 { right: 0; }
+.bottom-0 { bottom: 0; }
+.left-0 { left: 0; }
+
+/* Z-index utilities */
+.z-10 { z-index: 10; }
+
+/* Clean Background utilities */
+.bg-clean-gradient { 
+  background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);
+}
+
+/* Gumdrop Brand Colors */
+.bg-gumdrop-yellow { background-color: rgb(254, 217, 58); }
+.bg-gumdrop-dark { background-color: #1a1a1a; }
+.bg-gumdrop-light { background-color: #FFF8E1; }
+.bg-white { background-color: #ffffff; }
+.bg-gray-50 { background-color: #fafafa; }
+
+/* Clean Text utilities */
+.text-2xl { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+.text-xs { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.text-black { color: #1a1a1a; }
+.text-white { color: #ffffff; }
+.text-gray-600 { color: #666666; }
+.text-gray-500 { color: #888888; }
+.text-gumdrop-yellow { color: rgb(254, 217, 58); }
+.text-center { text-align: center; }
+
+/* Background clip text gradient effect */
+.bg-clip-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+/* Clean Border utilities */
+.border { border-width: 1px; }
+.border-2 { border-width: 2px; }
+.border-gray-200 { border: 1px solid #e5e5e5; }
+.border-gumdrop { border: 2px solid rgb(254, 217, 58); }
+.border-t { border-top-width: 1px; border-top-color: #e5e5e5; }
+
+/* Modern Border radius utilities */
+.rounded-xl { border-radius: 16px; }
+.rounded-lg { border-radius: 12px; }
+.rounded-full { border-radius: 50%; }
+
+/* Clean Shadow utilities */
+.shadow-lg { 
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+}
+.shadow-xl { 
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+}
+.shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Backdrop utilities */
+.backdrop-blur-lg { backdrop-filter: blur(16px); }
+.backdrop-blur-md { backdrop-filter: blur(12px); }
+.backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Transition utilities */
+.transition-all { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+.duration-200 { transition-duration: 200ms; }
+
+/* Hover utilities */
+.hover\:shadow-xl:hover { 
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+}
+.hover\:scale-105:hover { transform: scale(1.05); }
+.active\:scale-95:active { transform: scale(0.95); }
+
+/* Overflow utilities */
+.overflow-hidden { overflow: hidden; }
+
+/* Blur utilities */
+.blur-2xl { filter: blur(40px); }
+.blur-xl { filter: blur(24px); }
+
+/* Display utilities */
+.hidden { display: none !important; }
+.block { display: block; }
+
+/* Subtle Animation utilities */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Space utilities */
+.space-y-3 > * + * { margin-top: 0.75rem; }
+
+/* Cursor utilities */
+.cursor-not-allowed { cursor: not-allowed; }
+
+/* Opacity utilities */
+.opacity-50 { opacity: 0.5; }
+
+/* Clean button styles */
+button {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Clean Card effect */
+.clean-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Gumdrop Button */
+.gumdrop-button {
+  background: rgb(254, 217, 58);
+  color: #1a1a1a;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+.gumdrop-button:hover {
+  background: rgb(245, 200, 30);
+}
+
+/* Clean text styles */
+.brand-text {
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+/* Clean spinner */
+.clean-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid rgb(254, 217, 58);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}

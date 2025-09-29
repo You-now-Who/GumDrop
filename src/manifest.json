@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Gumdrop",
+  "version": "1.0.0",
+  "description": "AI-powered event planning assistant for Eventbrite",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.eventbrite.com/*",
+    "*://*.eventbrite.co.uk/*",
+    "http://localhost:3000/"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Gumdrop - Event Planner",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "32": "assets/icon32.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.eventbrite.com/*",
+        "*://*.eventbrite.co.uk/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

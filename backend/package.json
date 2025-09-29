@@ -10,9 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@api/nuitee-lite-api": "file:.api/apis/nuitee-lite-api",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2"
-  }
+  },
+  "type": "module"
 }

@@ -1,0 +1,81 @@
+<!-- Simple HTML file to create placeholder icons -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gumdrop Icon Generator</title>
+    <style>
+        canvas { 
+            margin: 10px; 
+            border: 1px solid #ccc; 
+            background: linear-gradient(135deg, rgb(254, 217, 58), rgb(245, 158, 11));
+        }
+    </style>
+</head>
+<body>
+    <h2>Gumdrop Extension Icons</h2>
+    <p>Right-click each canvas and "Save image as..." to save the icons to the assets folder.</p>
+    
+    <div>
+        <p>16x16:</p>
+        <canvas id="icon16" width="16" height="16"></canvas>
+    </div>
+    
+    <div>
+        <p>32x32:</p>
+        <canvas id="icon32" width="32" height="32"></canvas>
+    </div>
+    
+    <div>
+        <p>48x48:</p>
+        <canvas id="icon48" width="48" height="48"></canvas>
+    </div>
+    
+    <div>
+        <p>128x128:</p>
+        <canvas id="icon128" width="128" height="128"></canvas>
+    </div>
+
+    <script>
+        function createIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, 'rgb(254, 217, 58)');
+            gradient.addColorStop(1, 'rgb(245, 158, 11)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add border radius effect
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, size * 0.2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            
+            // Add candy emoji or G letter
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            if (size >= 32) {
+                // Use emoji for larger sizes
+                ctx.font = `${size * 0.6}px Arial`;
+                ctx.fillText('🍬', size/2, size/2);
+            } else {
+                // Use G for smaller sizes
+                ctx.font = `bold ${size * 0.7}px Arial`;
+                ctx.fillText('G', size/2, size/2);
+            }
+        }
+        
+        // Generate all icons
+        createIcon('icon16', 16);
+        createIcon('icon32', 32);
+        createIcon('icon48', 48);
+        createIcon('icon128', 128);
+    </script>
+</body>
+</html>
