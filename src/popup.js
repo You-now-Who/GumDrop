@@ -295,6 +295,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                       currency: bestRoom.offerRetailRate.currency,
                       roomName: bestRoom.rates[0]?.name || 'Standard Room',
                       boardName: bestRoom.rates[0]?.boardName || '',
+                      offerId: bestRoom.offerId,
                       rateId: bestRoom.rates[0]?.rateId,
                       checkin: pricingData.checkin,
                       checkout: pricingData.checkout
@@ -697,18 +698,15 @@ document.addEventListener('DOMContentLoaded', async function() {
       
       // Call prebook API
       console.log('Calling prebook API for rate:', hotelData.rateId);
+      console.log(hotelData.pricing.offerId);
       const prebookResponse = await fetch('http://localhost:3000/api/prebook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          rateId: hotelData.rateId,
-          guestInfo: {
-            guestFirstName: "John",
-            guestLastName: "Doe",
-            guestEmail: "john.doe@example.com"
-          }
+          // rateId: hotelData.rateId,
+          offerId: hotelData.pricing.offerId
         })
       });
       
@@ -775,31 +773,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     return null;
   }
 
-  function showPrebookingModal(bookingDetails) {
+  async function showPrebookingModal(bookingDetails) {
     const modal = document.getElementById('prebooking-modal');
-    const { hotelName, prebookingData } = bookingDetails;
+    const { hotelName, prebookingData, hotelPrice } = bookingDetails;
     
     // Store prebook data for later booking confirmation
     window.currentPrebookData = prebookingData;
     
     // Handle real API data vs demo data
-    let roomName, boardName, roomRate, taxesFees, facilityFee, totalPrice, currency;
-    let prebookId, guestCount, paymentType, cancellationInfo, refundable;
+    let roomName, boardName, totalPrice, currency, prebookId;
     
     if (prebookingData.isDemo) {
-      // Use demo data structure
       roomName = prebookingData.roomName;
       boardName = prebookingData.boardName;
-      roomRate = prebookingData.roomRate;
-      taxesFees = prebookingData.taxesFees;
-      facilityFee = prebookingData.facilityFee;
       totalPrice = prebookingData.totalPrice;
       currency = prebookingData.currency;
       prebookId = prebookingData.prebookId;
-      guestCount = prebookingData.guestCount;
-      paymentType = prebookingData.paymentType;
-      cancellationInfo = prebookingData.cancellationInfo;
-      refundable = prebookingData.refundable;
     } else {
       // Parse real API data
       const roomType = prebookingData.roomTypes?.[0];
@@ -807,58 +796,132 @@ document.addEventListener('DOMContentLoaded', async function() {
       
       roomName = rate?.name || "Standard Room";
       boardName = rate?.boardName || "Room Only";
-      roomRate = rate?.retailRate?.total?.[0]?.amount || 0;
       currency = rate?.retailRate?.total?.[0]?.currency || prebookingData.currency || "USD";
-      
-      // Calculate taxes and fees
-      const taxesAndFees = rate?.retailRate?.taxesAndFees || [];
-      const includedTaxes = taxesAndFees.filter(tax => tax.included);
-      const excludedTaxes = taxesAndFees.filter(tax => !tax.included);
-      
-      taxesFees = includedTaxes.reduce((sum, tax) => sum + tax.amount, 0);
-      facilityFee = excludedTaxes.reduce((sum, tax) => sum + tax.amount, 0);
-      totalPrice = prebookingData.price || (roomRate + facilityFee);
-      
+      totalPrice = prebookingData.price || hotelPrice || 0;
       prebookId = prebookingData.prebookId;
-      guestCount = `${rate?.adultCount || 2} Adults`;
-      paymentType = rate?.paymentTypes?.[0] === "NUITEE_PAY" ? "Nuitee Pay" : "Property Pay";
-      
-      // Cancellation info
-      const cancelPolicy = rate?.cancellationPolicies?.cancelPolicyInfos?.[0];
-      if (cancelPolicy) {
-        const cancelDate = new Date(cancelPolicy.cancelTime);
-        cancellationInfo = `Free cancellation until ${cancelDate.toLocaleString()}`;
-      } else {
-        cancellationInfo = "Cancellation policy varies";
-      }
-      
-      refundable = rate?.cancellationPolicies?.refundableTag === "RFN";
     }
     
-    // Populate modal with booking details
+    // Populate hotel details
     document.getElementById('booking-hotel-name').textContent = hotelName;
+    document.getElementById('hotel-name-display').textContent = hotelName;
+    document.getElementById('hotel-address').textContent = "Event Location Area"; // Could be enhanced with real address
     document.getElementById('room-name').textContent = roomName;
     document.getElementById('room-board').textContent = boardName;
-    document.getElementById('room-rate').textContent = `${currency === 'USD' ? '$' : '£'}${roomRate.toFixed(2)}`;
-    document.getElementById('taxes-fees').textContent = `${currency === 'USD' ? '$' : '£'}${taxesFees.toFixed(2)}`;
-    document.getElementById('facility-amount').textContent = `${currency === 'USD' ? '$' : '£'}${facilityFee.toFixed(2)}`;
-    document.getElementById('total-price').textContent = `${currency === 'USD' ? '$' : '£'}${totalPrice.toFixed(2)}`;
-    document.getElementById('prebook-id').textContent = prebookId;
-    document.getElementById('guest-count').textContent = guestCount;
-    document.getElementById('payment-type').textContent = paymentType;
-    document.getElementById('cancellation-info').textContent = cancellationInfo;
-    document.getElementById('refund-tag').textContent = refundable ? 'Refundable' : 'Non-refundable';
+    document.getElementById('total-price-display').textContent = `${currency === 'USD' ? '$' : '£'}${totalPrice.toFixed(2)}`;
+    document.getElementById('price-breakdown').textContent = "Includes all taxes and fees";
     
-    // Show/hide facility fee row
-    const facilityFeeRow = document.getElementById('facility-fee');
-    if (facilityFee > 0) {
-      facilityFeeRow.classList.remove('hidden');
-    } else {
-      facilityFeeRow.classList.add('hidden');
+    // Load and populate holder information from user profile
+    try {
+      const userProfile = await getUserProfile();
+      document.getElementById('holder-firstname').value = userProfile.firstName || '';
+      document.getElementById('holder-lastname').value = userProfile.lastName || '';
+      document.getElementById('holder-email').value = userProfile.email || '';
+      document.getElementById('holder-phone').value = userProfile.phone || '';
+      
+      // Also populate the first guest with holder info by default
+      const firstGuestForm = document.querySelector('.guest-form[data-guest-number="1"]');
+      if (firstGuestForm) {
+        firstGuestForm.querySelector('.guest-firstname').value = userProfile.firstName || '';
+        firstGuestForm.querySelector('.guest-lastname').value = userProfile.lastName || '';
+        firstGuestForm.querySelector('.guest-email').value = userProfile.email || '';
+        firstGuestForm.querySelector('.guest-phone').value = userProfile.phone || '';
+      }
+    } catch (error) {
+      console.error('Error loading user profile for booking form:', error);
     }
+    
+    // Reset guests container to show only mandatory first guest
+    resetGuestsContainer();
     
     // Show modal
     modal.classList.remove('hidden');
+  }
+  
+  // Reset guests container to default state
+  function resetGuestsContainer() {
+    const guestsContainer = document.getElementById('guests-container');
+    const addGuestBtn = document.getElementById('add-guest-btn');
+    
+    // Remove all guest forms except the first one
+    const allGuestForms = guestsContainer.querySelectorAll('.guest-form');
+    allGuestForms.forEach((form, index) => {
+      if (index > 0) {
+        form.remove();
+      }
+    });
+    
+    // Reset add button state
+    addGuestBtn.disabled = false;
+    addGuestBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+  
+  // Add new guest form
+  function addGuestForm() {
+    const guestsContainer = document.getElementById('guests-container');
+    const addGuestBtn = document.getElementById('add-guest-btn');
+    const currentGuestCount = guestsContainer.querySelectorAll('.guest-form').length;
+    
+    // Limit to 2 guests maximum
+    if (currentGuestCount >= 2) {
+      return;
+    }
+    
+    const newGuestNumber = currentGuestCount + 1;
+    const guestFormHTML = `
+      <div class="guest-form bg-white border border-green-300 rounded-lg p-3" data-guest-number="${newGuestNumber}">
+        <div class="flex items-center justify-between mb-3">
+          <h5 class="font-semibold text-green-800 text-sm">Guest ${newGuestNumber}</h5>
+          <button class="remove-guest-btn text-red-500 hover:text-red-700 text-xs font-medium flex items-center">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Remove
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-xs font-medium text-green-700 mb-1">First Name</label>
+            <input type="text" class="guest-firstname w-full px-2 py-1.5 text-xs border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="First name">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-green-700 mb-1">Last Name</label>
+            <input type="text" class="guest-lastname w-full px-2 py-1.5 text-xs border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Last name">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-green-700 mb-1">Email</label>
+            <input type="email" class="guest-email w-full px-2 py-1.5 text-xs border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="email@example.com">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-green-700 mb-1">Phone</label>
+            <input type="tel" class="guest-phone w-full px-2 py-1.5 text-xs border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Phone number">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-green-700 mb-1">Special Requests</label>
+          <textarea class="guest-remarks w-full px-2 py-1.5 text-xs border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" rows="2" placeholder="Any special requests or remarks..."></textarea>
+        </div>
+      </div>
+    `;
+    
+    guestsContainer.insertAdjacentHTML('beforeend', guestFormHTML);
+    
+    // Add event listener for remove button
+    const newGuestForm = guestsContainer.lastElementChild;
+    const removeBtn = newGuestForm.querySelector('.remove-guest-btn');
+    removeBtn.addEventListener('click', () => {
+      newGuestForm.remove();
+      // Re-enable add button if we're back under the limit
+      if (guestsContainer.querySelectorAll('.guest-form').length < 2) {
+        addGuestBtn.disabled = false;
+        addGuestBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+    
+    // Disable add button if we've reached the limit
+    if (guestsContainer.querySelectorAll('.guest-form').length >= 2) {
+      addGuestBtn.disabled = true;
+      addGuestBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
   }
   
   function createHotelCard(hotel, index) {
@@ -1187,6 +1250,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const closeBtn = document.getElementById('close-prebooking');
     const cancelBtn = document.getElementById('cancel-booking');
     const confirmBtn = document.getElementById('confirm-booking');
+    const addGuestBtn = document.getElementById('add-guest-btn');
     
     // Close modal handlers
     [closeBtn, cancelBtn].forEach(btn => {
@@ -1200,6 +1264,11 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (e.target === modal) {
         modal.classList.add('hidden');
       }
+    });
+    
+    // Add guest button handler
+    addGuestBtn?.addEventListener('click', () => {
+      addGuestForm();
     });
     
     // Confirm booking handler
@@ -1219,24 +1288,70 @@ document.addEventListener('DOMContentLoaded', async function() {
           // Real booking via API
           console.log('Confirming booking for prebook ID:', prebookData.prebookId);
           
-          // Get user profile data
-          const userProfile = await getUserProfile();
+          // Collect holder information from form
+          const holder = {
+            firstName: document.getElementById('holder-firstname').value.trim(),
+            lastName: document.getElementById('holder-lastname').value.trim(),
+            email: document.getElementById('holder-email').value.trim(),
+            phone: document.getElementById('holder-phone').value.trim()
+          };
+          
+          // Validate holder information
+          if (!holder.firstName || !holder.lastName || !holder.email || !holder.phone) {
+            throw new Error('Please fill in all holder information fields');
+          }
+          
+          // Collect guest information
+          const guests = [];
+          const guestForms = document.querySelectorAll('.guest-form');
+          
+          guestForms.forEach((form, index) => {
+            const guestData = {
+              occupancyNumber: index + 1,
+              firstName: form.querySelector('.guest-firstname').value.trim(),
+              lastName: form.querySelector('.guest-lastname').value.trim(),
+              email: form.querySelector('.guest-email').value.trim(),
+              phone: form.querySelector('.guest-phone').value.trim(),
+              remarks: form.querySelector('.guest-remarks').value.trim() || ''
+            };
+            
+            // Validate guest information (at least first guest is required)
+            if (index === 0 && (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone)) {
+              throw new Error('Please fill in all information for Guest 1 (Primary)');
+            }
+            
+            // Only add guest if they have required fields filled
+            if (guestData.firstName && guestData.lastName && guestData.email && guestData.phone) {
+              guests.push(guestData);
+            }
+          });
+          
+          // Ensure we have at least one guest
+          if (guests.length === 0) {
+            throw new Error('At least one guest is required');
+          }
+          
+          // Get payment method
+          const paymentMethod = document.querySelector('input[name="payment-method"]:checked')?.value || 'TRANSACTION_ID';
+          
+          const bookingPayload = {
+            holder: holder,
+            payment: {
+              method: paymentMethod,
+              transactionId: 'gmd_' + Math.random().toString(36).substr(2, 16) // Generate temporary transaction ID
+            },
+            guests: guests,
+            prebookId: prebookData.prebookId
+          };
+          
+          console.log('Booking payload:', bookingPayload);
           
           const bookingResponse = await fetch('http://localhost:3000/api/book', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              prebookId: prebookData.prebookId,
-              guestInfo: {
-                guestFirstName: userProfile.firstName,
-                guestLastName: userProfile.lastName,
-                guestEmail: userProfile.email,
-                guestPhoneNumber: userProfile.phone
-              },
-              paymentMethod: "NUITEE_PAY"
-            })
+            body: JSON.stringify(bookingPayload)
           });
           
           if (!bookingResponse.ok) {

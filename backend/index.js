@@ -139,9 +139,33 @@ app.post("/api/prebook", async (req, res) => {
 
 // Complete hotel booking
 app.post("/api/book", async (req, res) => {
-  const { prebookId, guestInfo, paymentMethod } = req.body;
+  const { holder, payment, guests, prebookId } = req.body;
+  
+  console.log("Booking request received:", { holder, payment, guests, prebookId });
   
   try {
+    // Validate required fields
+    if (!holder || !guests || !prebookId) {
+      return res.status(400).json({ 
+        error: "Missing required fields", 
+        required: ["holder", "guests", "prebookId"] 
+      });
+    }
+    
+    if (!holder.firstName || !holder.lastName || !holder.email || !holder.phone) {
+      return res.status(400).json({ 
+        error: "Holder information incomplete", 
+        required: ["firstName", "lastName", "email", "phone"] 
+      });
+    }
+    
+    if (!Array.isArray(guests) || guests.length === 0) {
+      return res.status(400).json({ error: "At least one guest is required" });
+    }
+    
+    // Use primary guest for LiteAPI guestInfo (API expects single guest format)
+    const primaryGuest = guests[0];
+    
     const url = "https://api.liteapi.travel/v3.0/hotels/rates/book";
     const options = {
       method: "POST",
@@ -152,26 +176,41 @@ app.post("/api/book", async (req, res) => {
       },
       body: JSON.stringify({
         prebookId: prebookId,
-        guestInfo: guestInfo || {
-          guestFirstName: "John",
-          guestLastName: "Doe", 
-          guestEmail: "john.doe@example.com",
-          guestPhoneNumber: "+1234567890"
+        guestInfo: {
+          guestFirstName: primaryGuest.firstName,
+          guestLastName: primaryGuest.lastName,
+          guestEmail: primaryGuest.email,
+          guestPhoneNumber: primaryGuest.phone
         },
-        paymentMethod: paymentMethod || "NUITEE_PAY",
-        holderName: guestInfo?.guestFirstName + " " + guestInfo?.guestLastName || "John Doe",
-        paymentMethodId: "pm_test_card"
+        paymentMethod: payment?.method === "TRANSACTION_ID" ? "NUITEE_PAY" : "PROPERTY_PAY",
+        holderName: `${holder.firstName} ${holder.lastName}`,
+        paymentMethodId: payment?.transactionId || "pm_gumdrop_" + Math.random().toString(36).substr(2, 12)
       }),
     };
 
+    console.log("Sending to LiteAPI:", JSON.stringify(options.body, null, 2));
+
     const r = await fetch(url, options);
     const j = await r.json();
+    
+    console.log("LiteAPI Response:", j);
     
     if (!r.ok) {
       return res.status(r.status).json({ error: j.message || "Booking failed", details: j });
     }
     
-    res.json(j);
+    // Include our booking metadata in the response
+    const bookingResponse = {
+      ...j,
+      bookingMeta: {
+        holder: holder,
+        guests: guests,
+        payment: payment,
+        gumDropBookingId: "GD" + Date.now().toString(36).toUpperCase()
+      }
+    };
+    
+    res.json(bookingResponse);
   } catch (err) {
     console.error("Booking error:", err);
     res.status(500).json({ error: String(err) });
