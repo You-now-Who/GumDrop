@@ -57,36 +57,43 @@
     // Try to get location from the specific Eventbrite structure
     const locationContainer = document.querySelector('.location-info__address');
     if (locationContainer) {
-      // console.log("Found location container:", locationContainer);
+      console.log("Found location container:", locationContainer);
       
       // Get venue name from the nested p tag
       const venueElement = locationContainer.querySelector('.location-info__address-text');
       let venue = '';
       if (venueElement) {
         venue = venueElement.textContent.trim();
-        // console.log("Found venue:", venue);
+        console.log("Found venue:", venue);
       }
       
-      // Get the full text content and extract address (everything after venue name)
-      const fullText = locationContainer.textContent.trim();
-      let address = '';
+      // Get ONLY the direct text content of the location container, excluding child elements
+      let directText = '';
+      for (let node of locationContainer.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          directText += node.textContent;
+        }
+      }
+      directText = directText.trim().replace(/\s+/g, ' ');
       
-      if (venue && fullText.includes(venue)) {
-        // Remove the venue name and any extra whitespace to get the address
-        address = fullText.replace(venue, '').replace(/Get directions.*$/, '').trim();
-        // console.log("Extracted address:", address);
+      console.log("Direct text from location container:", directText);
+      
+      // Store the direct text as address
+      if (directText) {
+        eventData.address = directText;
       }
       
-      // Combine venue and address
-      if (venue && address) {
-        eventData.location = `${venue}, ${address}`;
+      // Combine venue and address for location
+      if (venue && directText) {
+        eventData.location = `${venue}, ${directText}`;
       } else if (venue) {
         eventData.location = venue;
-      } else if (address) {
-        eventData.location = address;
+      } else if (directText) {
+        eventData.location = directText;
       }
       
       console.log("Final location:", eventData.location);
+      console.log("Stored address:", eventData.address);
     }
     
     // Fallback selectors if the above doesn't work
@@ -140,8 +147,11 @@
     if (eventData.location) {
       eventData.location = eventData.location.replace(/\s+/g, ' ').trim();
     }
+    if (eventData.address) {
+      eventData.address = eventData.address.replace(/\s+/g, ' ').trim();
+    }
 
-    // console.log('Scraped event data:', eventData);
+    console.log('Scraped event data:', eventData);
     return eventData;
   }
 

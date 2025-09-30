@@ -13,6 +13,48 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   let currentEventData = null;
 
+  // Update API status indicator
+  function updateApiStatus(status) {
+    const apiStatus = document.getElementById('api-status');
+    if (!apiStatus) return;
+    
+    if (status === 'connected') {
+      apiStatus.innerHTML = `
+        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+        <span class="text-xs text-green-600 font-medium">Live API</span>
+      `;
+    } else if (status === 'offline') {
+      apiStatus.innerHTML = `
+        <div class="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+        <span class="text-xs text-orange-600 font-medium">Demo Mode</span>
+      `;
+    } else {
+      apiStatus.innerHTML = `
+        <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
+        <span class="text-xs text-slate-400">Checking...</span>
+      `;
+    }
+  }
+
+  // Check API connectivity on startup
+  async function checkApiStatus() {
+    try {
+      const response = await fetch('http://localhost:3000/api/geolocate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: 'London' })
+      });
+      
+      if (response.ok) {
+        updateApiStatus('connected');
+      } else {
+        updateApiStatus('offline');
+      }
+    } catch (error) {
+      updateApiStatus('offline');
+    }
+  }
+
   // Check if we're on an Eventbrite page and get fresh data
   async function loadEventData() {
     try {
@@ -99,15 +141,109 @@ document.addEventListener('DOMContentLoaded', async function() {
     generateBtn.disabled = true;
     
     try {
-      console.log('Using dummy data for location:', currentEventData.location);
+      console.log('Finding hotels for location:', currentEventData.location);
       
-      // *** USING DUMMY DATA FOR TESTING ***
-      // Simulate API delay for realistic UX
-      await new Promise(resolve => setTimeout(resolve, 200));
+      let hotelData;
       
-      // Use dummy data from global window object
-      const hotelData = window.dummyHotels;
-      console.log('Using dummy hotel data:', hotelData);
+      // Try localhost API first
+      try {
+        console.log('Calling localhost API for hotels...');
+        console.log(currentEventData);
+        console.log(currentEventData.address);
+        
+        // Step 1: Get list of hotels
+        const apiResponse = await fetch('http://localhost:3000/api/hotels', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location: currentEventData.location,
+            address: currentEventData.address,
+            radius: 3000 // 1km radius
+          })
+        });
+        
+        if (!apiResponse.ok) {
+          throw new Error(`API responded with status: ${apiResponse.status}`);
+        }
+        
+        hotelData = await apiResponse.json();
+        console.log('Successfully loaded hotels from API:', hotelData.data?.length || 0, 'hotels found');
+        
+        // Step 2: Get pricing details for all hotels
+        if (hotelData.data?.length > 0 && currentEventData.date) {
+          try {
+            const hotelIds = hotelData.data.map(hotel => hotel.id);
+            console.log('Getting pricing for hotel IDs:', hotelIds);
+            
+            const detailsResponse = await fetch('http://localhost:3000/api/hotels_details', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                hotelIds: hotelIds,
+                eventDate: currentEventData.date
+              })
+            });
+            
+            if (detailsResponse.ok) {
+              const pricingData = await detailsResponse.json();
+              console.log('Got pricing data:', pricingData);
+              
+              // Only keep hotels that have pricing data
+              const hotelsWithPricing = [];
+              
+              if (pricingData.data) {
+                pricingData.data.forEach(hotelPricing => {
+                  const hotel = hotelData.data.find(h => h.id === hotelPricing.hotelId);
+                  if (hotel && hotelPricing.roomTypes?.length > 0) {
+                    // Get the best (cheapest) rate
+                    const bestRoom = hotelPricing.roomTypes.reduce((best, room) => 
+                      !best || room.offerRetailRate.amount < best.offerRetailRate.amount ? room : best
+                    );
+                    
+                    hotel.pricing = {
+                      amount: bestRoom.offerRetailRate.amount,
+                      currency: bestRoom.offerRetailRate.currency,
+                      roomName: bestRoom.rates[0]?.name || 'Standard Room',
+                      boardName: bestRoom.rates[0]?.boardName || '',
+                      checkin: pricingData.checkin,
+                      checkout: pricingData.checkout
+                    };
+                    
+                    hotelsWithPricing.push(hotel);
+                  }
+                });
+              }
+              
+              // Replace hotelData with only hotels that have pricing
+              hotelData.data = hotelsWithPricing;
+              console.log('Hotels with pricing data:', hotelsWithPricing.length);
+              
+            } else {
+              console.log('Failed to get pricing data');
+              hotelData.data = []; // No hotels to show if pricing fails
+            }
+          } catch (pricingError) {
+            console.log('Error getting pricing data:', pricingError.message);
+            hotelData.data = []; // No hotels to show if pricing fails
+          }
+        }
+        
+        // Update status indicator
+        updateApiStatus('connected');
+        
+      } catch (apiError) {
+        console.error('API call failed:', apiError.message);
+        
+        // Update status indicator
+        updateApiStatus('offline');
+        
+        // No fallback - show error instead
+        hotelData = { data: [] };
+      }
       
       // Display results
       displayHotelResults(hotelData);
@@ -169,9 +305,21 @@ document.addEventListener('DOMContentLoaded', async function() {
       const address = hotel.address || '';
       const city = hotel.city || '';
       const rating = hotel.rating && hotel.rating > 0 ? hotel.rating : (4.2 + Math.random() * 0.6).toFixed(1);
-      const price = hotel.price || '$' + (Math.floor(Math.random() * 200) + 80);
+      
+      // Use real pricing data if available
+      let price, roomInfo = '';
+      if (hotel.pricing) {
+        const symbol = hotel.pricing.currency === 'GBP' ? '£' : '$';
+        price = `${symbol}${hotel.pricing.amount}`;
+        if (hotel.pricing.boardName) {
+          roomInfo = hotel.pricing.boardName;
+        }
+      } else {
+        price = '$' + (Math.floor(Math.random() * 200) + 80);
+      }
+      
       const photo = hotel.thumbnail || hotel.main_photo || '';
-      const distance = `${(Math.random() * 5 + 0.5).toFixed(1)}km`;
+      const distance = hotel.distance ? `${hotel.distance.toFixed(1)}km` : `${(Math.random() * 5 + 0.5).toFixed(1)}km`;
       
       // Best deal badge for top hotel
       const isBestDeal = index === 0;
@@ -211,16 +359,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                   <span class="mr-1">📍</span>
                   ${distance}
                 </span>
-                <span class="flex items-center">
-                  <span class="mr-1">🚗</span>
-                  Free parking
-                </span>
+                ${roomInfo ? `
+                  <span class="flex items-center">
+                    <span class="mr-1">🍽️</span>
+                    ${roomInfo}
+                  </span>
+                ` : `
+                  <span class="flex items-center">
+                    <span class="mr-1">🚗</span>
+                    Free parking
+                  </span>
+                `}
               </div>
               
               <div class="flex items-end justify-between">
                 <div>
-                  <p class="text-xs text-slate-500">Per night from</p>
+                  <p class="text-xs text-slate-500">${hotel.pricing ? 'Per night from' : 'Est. per night'}</p>
                   <p class="font-black text-slate-900 text-lg">${price}</p>
+                  ${hotel.pricing && hotel.pricing.checkin && hotel.pricing.checkout ? `
+                    <p class="text-xs text-slate-400">${hotel.pricing.checkin} - ${hotel.pricing.checkout}</p>
+                  ` : ''}
                 </div>
                 
                 <!-- One-Click Book Button -->
@@ -251,6 +409,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Add event listeners
     setupQuickBooking();
+    
+    // Add detailed booking listeners
+    document.querySelectorAll('.book-detailed-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const hotelName = this.dataset.hotelName;
+        const hotelPrice = this.dataset.hotelPrice;
+        handleQuickBooking(hotelName, hotelPrice, this);
+      });
+    });
   }
 
   function prepareDetailedView(hotels) {
@@ -274,7 +441,18 @@ document.addEventListener('DOMContentLoaded', async function() {
       const address = hotel.address || '';
       const city = hotel.city || '';
       const rating = hotel.rating && hotel.rating > 0 ? hotel.rating : (4.2 + Math.random() * 0.6).toFixed(1);
-      const price = hotel.price || '$' + (Math.floor(Math.random() * 200) + 100);
+      
+      // Use real pricing data if available
+      let price, roomDetails = '';
+      if (hotel.pricing) {
+        const symbol = hotel.pricing.currency === 'GBP' ? '£' : '$';
+        price = `${symbol}${hotel.pricing.amount}`;
+        roomDetails = hotel.pricing.roomName || 'Standard Room';
+      } else {
+        price = '$' + (Math.floor(Math.random() * 200) + 100);
+        roomDetails = 'Standard Room';
+      }
+      
       const photo = hotel.thumbnail || hotel.main_photo || '';
       
       hotelCard.innerHTML = `
@@ -298,7 +476,8 @@ document.addEventListener('DOMContentLoaded', async function() {
           <div class="p-3 h-44 flex flex-col">
             <div class="flex-1">
               <h3 class="font-black text-slate-900 text-sm mb-1 leading-tight line-clamp-2">${name}</h3>
-              <p class="text-slate-600 text-xs mb-2 font-medium line-clamp-1">${address}${city ? `, ${city}` : ''}</p>
+              <p class="text-slate-600 text-xs mb-1 font-medium line-clamp-1">${address}${city ? `, ${city}` : ''}</p>
+              <p class="text-slate-500 text-xs mb-2 line-clamp-1">${roomDetails}</p>
               
               <!-- Amenities -->
               <div class="flex items-center space-x-2 mb-3">
@@ -318,8 +497,11 @@ document.addEventListener('DOMContentLoaded', async function() {
               
               <div class="flex items-center justify-between mb-3">
                 <div>
-                  <p class="text-xs text-slate-500 font-medium">Per night</p>
+                  <p class="text-xs text-slate-500 font-medium">${hotel.pricing ? 'Per night' : 'Est. per night'}</p>
                   <p class="font-black text-slate-900 text-lg">${price}</p>
+                  ${hotel.pricing && hotel.pricing.boardName ? `
+                    <p class="text-xs text-green-600 font-medium">${hotel.pricing.boardName}</p>
+                  ` : ''}
                 </div>
               </div>
             </div>
@@ -711,5 +893,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Initialize
-  await loadEventData();
+  await Promise.all([
+    loadEventData(),
+    checkApiStatus()
+  ]);
 });

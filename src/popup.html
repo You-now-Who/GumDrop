@@ -23,7 +23,13 @@
         </div>
         <div>
           <h1 class="text-lg font-black text-slate-800 tracking-tight">Gumdrop</h1>
-          <p class="text-xs text-slate-500 font-medium -mt-1">Event Assistant</p>
+          <div class="flex items-center space-x-2 -mt-1">
+            <p class="text-xs text-slate-500 font-medium">Event Assistant</p>
+            <div id="api-status" class="flex items-center space-x-1">
+              <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
+              <span class="text-xs text-slate-400">Checking...</span>
+            </div>
+          </div>
         </div>
       </div>
       <button class="w-8 h-8 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition-colors">
