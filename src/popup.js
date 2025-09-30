@@ -3,7 +3,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   const loadingDiv = document.getElementById('loading');
   const noEventDiv = document.getElementById('no-event');
   const eventDetailsDiv = document.getElementById('event-details');
-  const resultsSection = document.getElementById('results-section');
+  const hotelsSection = document.getElementById('hotels-section');
+  const hotelsStack = document.getElementById('hotels-stack');
+  const hotelsCount = document.getElementById('hotels-count');
   
   const eventTitle = document.getElementById('event-title');
   const eventDate = document.getElementById('event-date');
@@ -97,27 +99,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     generateBtn.disabled = true;
     
     try {
-      console.log('Sending location to API:', currentEventData.location);
+      console.log('Using dummy data for location:', currentEventData.location);
       
-      // Call the hotels API
-      const response = await fetch('http://localhost:3000/api/hotels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: currentEventData.location,
-          checkin: currentEventData.date || new Date().toISOString().split('T')[0],
-          nights: 2
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const hotelData = await response.json();
-      console.log('Hotel API response:', hotelData);
+      // *** USING DUMMY DATA FOR TESTING ***
+      // Simulate API delay for realistic UX
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Use dummy data from global window object
+      const hotelData = window.dummyHotels;
+      console.log('Using dummy hotel data:', hotelData);
       
       // Display results
       displayHotelResults(hotelData);
@@ -142,43 +132,582 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
+  let currentHotelIndex = 0;
+  let hotelCards = [];
+  
   function displayHotelResults(hotelData) {
-    resultsSection.classList.remove('hidden');
+    // Show the hotels section
+    hotelsSection.classList.remove('hidden');
     
-    let hotelsHtml = '';
-    if (hotelData.success && hotelData.hotels) {
-      // Handle different possible response formats
-      const hotels = hotelData.hotels.data || hotelData.hotels.results || hotelData.hotels || [];
+    // Handle Nuitee API response format
+    const hotels = hotelData.data || [];
+    hotelCards = hotels; // Store for navigation
+    
+    if (hotels.length > 0) {
+      // Show quick results first (top 3 hotels)
+      displayQuickResults(hotels.slice(0, 3));
       
-      if (hotels.length > 0) {
-        hotelsHtml = hotels.slice(0, 3).map(hotel => {
-          const name = hotel.name || hotel.hotelName || hotel.hotel_name || 'Unknown Hotel';
-          const price = hotel.price || hotel.rate || hotel.price_per_night || '';
-          const url = hotel.booking_url || hotel.url || hotel.link || '#';
-          
-          return `
-            <div class="bg-white rounded-lg p-3 mb-2 border border-gray-200">
-              <h4 class="font-semibold text-black">${name}</h4>
-              ${price ? `<p class="text-sm text-gray-600">From ${price}</p>` : ''}
-              <a href="${url}" target="_blank" class="text-xs text-blue-600 hover:underline">View Details →</a>
-            </div>
-          `;
-        }).join('');
-      } else {
-        hotelsHtml = '<p class="text-sm text-gray-600">No hotels found for this location.</p>';
-      }
+      // Prepare detailed view
+      prepareDetailedView(hotels);
     } else {
-      hotelsHtml = '<p class="text-sm text-red-600">Error: Unable to fetch hotel data.</p>';
+      document.getElementById('quick-results').innerHTML = `
+        <div class="bg-white rounded-2xl p-6 text-center border border-slate-200/50">
+          <div class="text-4xl mb-3">🏨</div>
+          <p class="text-lg font-bold text-slate-900 mb-2">No hotels found</p>
+          <p class="text-sm text-slate-600">Try searching in a different area</p>
+        </div>
+      `;
     }
+  }
+
+  function displayQuickResults(topHotels) {
+    const quickResults = document.getElementById('quick-results');
+    quickResults.innerHTML = '';
+
+    topHotels.forEach((hotel, index) => {
+      const name = hotel.name || 'Unknown Hotel';
+      const address = hotel.address || '';
+      const city = hotel.city || '';
+      const rating = hotel.rating && hotel.rating > 0 ? hotel.rating : (4.2 + Math.random() * 0.6).toFixed(1);
+      const price = hotel.price || '$' + (Math.floor(Math.random() * 200) + 80);
+      const photo = hotel.thumbnail || hotel.main_photo || '';
+      const distance = `${(Math.random() * 5 + 0.5).toFixed(1)}km`;
+      
+      // Best deal badge for top hotel
+      const isBestDeal = index === 0;
+      
+      const quickCard = document.createElement('div');
+      quickCard.className = 'bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden hover:shadow-lg transition-all duration-200';
+      
+      quickCard.innerHTML = `
+        <div class="p-4">
+          <div class="flex space-x-3">
+            <!-- Hotel Image -->
+            <div class="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex-shrink-0 overflow-hidden relative">
+              ${photo ? `<img src="${photo}" alt="${name}" class="w-full h-full object-cover">` : `
+                <div class="flex items-center justify-center h-full">
+                  <span class="text-2xl">🏨</span>
+                </div>
+              `}
+              ${isBestDeal ? `
+                <div class="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-black px-1.5 py-0.5 rounded-lg shadow-sm">
+                  BEST
+                </div>
+              ` : ''}
+            </div>
+            
+            <!-- Hotel Info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between mb-1">
+                <h3 class="font-bold text-slate-900 text-sm leading-tight line-clamp-1">${name}</h3>
+                <div class="flex items-center space-x-1 text-xs text-yellow-600 font-bold ml-2">
+                  <span>${rating}</span>
+                  <span>⭐</span>
+                </div>
+              </div>
+              
+              <div class="flex items-center space-x-3 text-xs text-slate-600 mb-2">
+                <span class="flex items-center">
+                  <span class="mr-1">📍</span>
+                  ${distance}
+                </span>
+                <span class="flex items-center">
+                  <span class="mr-1">🚗</span>
+                  Free parking
+                </span>
+              </div>
+              
+              <div class="flex items-end justify-between">
+                <div>
+                  <p class="text-xs text-slate-500">Per night from</p>
+                  <p class="font-black text-slate-900 text-lg">${price}</p>
+                </div>
+                
+                <!-- One-Click Book Button -->
+                <button class="book-now-btn bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                        data-hotel-name="${name}" data-hotel-price="${price}">
+                  📅 Book Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      quickResults.appendChild(quickCard);
+    });
+
+    // Add "See All Hotels" button
+    const seeAllButton = document.createElement('div');
+    seeAllButton.innerHTML = `
+      <button id="show-detailed" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-slate-400 transition-all duration-200">
+        <div class="flex items-center justify-center space-x-2">
+          <span>🔍</span>
+          <span>See All ${hotelCards.length} Hotels</span>
+        </div>
+      </button>
+    `;
+    quickResults.appendChild(seeAllButton);
+
+    // Add event listeners
+    setupQuickBooking();
+  }
+
+  function prepareDetailedView(hotels) {
+    const hotelsStack = document.getElementById('hotels-stack');
+    const hotelsCounter = document.getElementById('hotel-counter');
     
-    resultsSection.innerHTML = `
-      <div class="mt-4 pt-3 border-t border-gray-200">
-        <p class="text-xs text-gray-500 mb-2 font-medium">🏨 Hotels near ${currentEventData.location}</p>
-        <div class="space-y-2">
-          ${hotelsHtml}
+    currentHotelIndex = 0;
+    hotelsCounter.textContent = `Viewing 1 of ${hotels.length} hotels`;
+    
+    // Clear and populate detailed hotel stack
+    hotelsStack.innerHTML = '';
+    
+    hotels.forEach((hotel, index) => {
+      const hotelCard = document.createElement('div');
+      hotelCard.className = 'hotel-card absolute top-0 left-0 w-full h-full bg-white rounded-2xl shadow-lg border border-slate-200/50 overflow-hidden';
+      hotelCard.style.zIndex = hotels.length - index;
+      hotelCard.style.transform = `translateX(${index * 3}px) translateY(${index * 2}px) scale(${1 - index * 0.015})`;
+      hotelCard.setAttribute('data-index', index);
+      
+      const name = hotel.name || 'Unknown Hotel';
+      const address = hotel.address || '';
+      const city = hotel.city || '';
+      const rating = hotel.rating && hotel.rating > 0 ? hotel.rating : (4.2 + Math.random() * 0.6).toFixed(1);
+      const price = hotel.price || '$' + (Math.floor(Math.random() * 200) + 100);
+      const photo = hotel.thumbnail || hotel.main_photo || '';
+      
+      hotelCard.innerHTML = `
+        <div class="relative h-full">
+          <!-- Hotel Image -->
+          <div class="h-20 bg-gradient-to-br from-slate-100 via-slate-50 to-yellow-50 relative overflow-hidden">
+            ${photo ? `<img src="${photo}" alt="${name}" class="w-full h-full object-cover">` : `
+              <div class="flex items-center justify-center h-full">
+                <div class="w-10 h-10 bg-gradient-to-br from-slate-300 to-slate-400 rounded-xl flex items-center justify-center">
+                  <span class="text-xl text-white">🏨</span>
+                </div>
+              </div>
+            `}
+            
+            <div class="absolute top-2 right-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-2 py-1 rounded-xl text-xs font-black shadow-sm">
+              ${rating}⭐
+            </div>
+          </div>
+          
+          <!-- Hotel Details -->
+          <div class="p-3 h-44 flex flex-col">
+            <div class="flex-1">
+              <h3 class="font-black text-slate-900 text-sm mb-1 leading-tight line-clamp-2">${name}</h3>
+              <p class="text-slate-600 text-xs mb-2 font-medium line-clamp-1">${address}${city ? `, ${city}` : ''}</p>
+              
+              <!-- Amenities -->
+              <div class="flex items-center space-x-2 mb-3">
+                <div class="w-5 h-5 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">🏊</span>
+                </div>
+                <div class="w-5 h-5 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">🚗</span>
+                </div>
+                <div class="w-5 h-5 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">📶</span>
+                </div>
+                <div class="w-5 h-5 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">☕</span>
+                </div>
+              </div>
+              
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <p class="text-xs text-slate-500 font-medium">Per night</p>
+                  <p class="font-black text-slate-900 text-lg">${price}</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-2 mt-auto">
+              <button class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs transition-all duration-200 hover:scale-105">
+                More Info
+              </button>
+              <button class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-3 py-2 rounded-xl font-bold text-xs transition-all duration-200 hover:scale-105 shadow-lg book-detailed-btn"
+                      data-hotel-name="${name}" data-hotel-price="${price}">
+                Book Now
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      hotelsStack.appendChild(hotelCard);
+    });
+  }
+
+  function setupQuickBooking() {
+    // One-click booking buttons
+    document.querySelectorAll('.book-now-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const hotelName = this.dataset.hotelName;
+        const hotelPrice = this.dataset.hotelPrice;
+        handleQuickBooking(hotelName, hotelPrice, this);
+      });
+    });
+
+    // Show detailed view button
+    document.getElementById('show-detailed')?.addEventListener('click', function() {
+      document.getElementById('detailed-view').classList.remove('hidden');
+      setupHotelNavigation();
+    });
+
+    // Close detailed view button
+    document.getElementById('close-detailed')?.addEventListener('click', function() {
+      document.getElementById('detailed-view').classList.add('hidden');
+    });
+  }
+
+  function handleQuickBooking(hotelName, hotelPrice, button) {
+    // Simulate booking process
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳ Booking...';
+    button.disabled = true;
+    
+    setTimeout(() => {
+      button.innerHTML = '✅ Booked!';
+      button.className = 'bg-green-500 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md';
+      
+      // Show success message
+      const card = button.closest('.bg-white');
+      card.style.transform = 'scale(0.98)';
+      card.style.opacity = '0.7';
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        button.className = 'book-now-btn bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200';
+        card.style.transform = '';
+        card.style.opacity = '';
+      }, 2000);
+    }, 1000);
+  }
+  
+  function createHotelCard(hotel, index) {
+    const name = hotel.name || 'Unknown Hotel';
+    const address = hotel.address || '';
+    const city = hotel.city || '';
+    const stars = hotel.stars ? '⭐'.repeat(Math.min(hotel.stars, 5)) : '';
+    const rating = hotel.rating && hotel.rating > 0 ? `${hotel.rating}/10` : '';
+    const reviews = hotel.reviewCount ? `(${hotel.reviewCount} reviews)` : '';
+    const currency = hotel.currency || 'GBP';
+    const photo = hotel.thumbnail || hotel.main_photo || '';
+    const description = hotel.hotelDescription || hotel.description || hotel.summary || '';
+    
+    return `
+      <div class="hotel-card ${index === 0 ? 'active' : ''}" data-index="${index}">
+        <div class="hotel-card-inner">
+          ${photo ? `
+            <div class="hotel-image-container">
+              <img src="${photo}" alt="${name}" class="hotel-image">
+              <div class="hotel-overlay">
+                <div class="hotel-rating">
+                  ${stars}
+                  ${rating ? `<span class="rating-score">${rating}</span>` : ''}
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div class="hotel-placeholder">
+              <span class="hotel-icon">🏨</span>
+            </div>
+          `}
+          
+          <div class="hotel-content">
+            <div class="hotel-header">
+              <h4 class="hotel-name">${name}</h4>
+              <span class="hotel-currency">${currency}</span>
+            </div>
+            
+            ${address ? `<p class="hotel-address">${address}${city ? `, ${city}` : ''}</p>` : ''}
+            
+            ${description ? `<p class="hotel-description">${description.substring(0, 120)}${description.length > 120 ? '...' : ''}</p>` : ''}
+            
+            <div class="hotel-footer">
+              ${reviews ? `<span class="hotel-reviews">${reviews}</span>` : ''}
+              <button class="hotel-details-btn">View Details →</button>
+            </div>
+          </div>
         </div>
       </div>
     `;
+  }
+  
+  function setupHotelNavigation() {
+    console.log('Setting up hotel navigation...');
+    const stack = document.getElementById('hotels-stack');
+    const prevBtn = document.getElementById('prev-hotel');
+    const nextBtn = document.getElementById('next-hotel');
+    const counter = document.getElementById('hotel-counter');
+    
+    console.log('Navigation elements:', { stack, prevBtn, nextBtn });
+    
+    function updateStack() {
+      const cards = document.querySelectorAll('.hotel-card');
+      
+      console.log(`Updating stack: currentIndex=${currentHotelIndex}, cards=${cards.length}`);
+      
+      cards.forEach((card, index) => {
+        if (index === currentHotelIndex) {
+          // Active card - front and center
+          card.style.transform = 'translateX(0px) translateY(0px) scale(1)';
+          card.style.opacity = '1';
+          card.style.zIndex = '10';
+        } else if (index < currentHotelIndex) {
+          // Cards behind - move left and scale down
+          card.style.transform = `translateX(-${(currentHotelIndex - index) * 20}px) translateY(${(currentHotelIndex - index) * 10}px) scale(${1 - (currentHotelIndex - index) * 0.05})`;
+          card.style.opacity = '0.6';
+          card.style.zIndex = String(10 - (currentHotelIndex - index));
+        } else {
+          // Cards ahead - stack with offset
+          card.style.transform = `translateX(${(index - currentHotelIndex) * 3}px) translateY(${(index - currentHotelIndex) * 2}px) scale(${1 - (index - currentHotelIndex) * 0.015})`;
+          card.style.opacity = '0.8';
+          card.style.zIndex = String(10 - (index - currentHotelIndex));
+        }
+      });
+      
+      if (counter) {
+        counter.textContent = `Viewing ${currentHotelIndex + 1} of ${hotelCards.length} hotels`;
+      }
+      
+      if (prevBtn) prevBtn.disabled = currentHotelIndex === 0;
+      if (nextBtn) nextBtn.disabled = currentHotelIndex === hotelCards.length - 1;
+    }
+    
+    prevBtn?.addEventListener('click', () => {
+      console.log('Previous button clicked');
+      if (currentHotelIndex > 0) {
+        currentHotelIndex--;
+        updateStack();
+      }
+    });
+    
+    nextBtn?.addEventListener('click', () => {
+      console.log('Next button clicked');
+      if (currentHotelIndex < hotelCards.length - 1) {
+        currentHotelIndex++;
+        updateStack();
+      }
+    });
+    
+    dots.forEach((dot, index) => {
+      dot.addEventListener('click', () => {
+        currentHotelIndex = index;
+        updateStack();
+      });
+    });
+    
+    // Add swipe functionality
+    setupSwipeGestures(stack, updateStack);
+    
+    // Initial setup
+    updateStack();
+  }
+
+  function setupSwipeGestures(container, updateCallback) {
+    if (!container) return;
+    
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let isDragging = false;
+    let startTime = 0;
+    
+    const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
+    const SWIPE_VELOCITY_THRESHOLD = 0.3; // Minimum velocity (pixels/ms)
+    const MAX_VERTICAL_DEVIATION = 100; // Maximum vertical movement allowed
+    
+    // Navigation functions
+    function goToPrevious() {
+      if (currentHotelIndex > 0) {
+        currentHotelIndex--;
+        updateCallback();
+        return true;
+      }
+      return false;
+    }
+    
+    function goToNext() {
+      if (currentHotelIndex < hotelCards.length - 1) {
+        currentHotelIndex++;
+        updateCallback();
+        return true;
+      }
+      return false;
+    }
+    
+    // Touch Events
+    container.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      currentX = startX;
+      currentY = startY;
+      isDragging = true;
+      startTime = Date.now();
+      
+      // Prevent default scrolling behavior
+      e.preventDefault();
+    }, { passive: false });
+    
+    container.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      
+      const touch = e.touches[0];
+      currentX = touch.clientX;
+      currentY = touch.clientY;
+      
+      // Calculate deltas
+      const deltaX = currentX - startX;
+      const deltaY = Math.abs(currentY - startY);
+      
+      // If vertical movement is too much, cancel the swipe
+      if (deltaY > MAX_VERTICAL_DEVIATION) {
+        isDragging = false;
+        return;
+      }
+      
+      // Provide visual feedback during swipe
+      const activeCard = container.querySelector('.hotel-card.active');
+      if (activeCard && Math.abs(deltaX) > 10) {
+        const translateAmount = deltaX * 0.3; // Dampened movement
+        activeCard.style.transform = `translateX(${translateAmount}px) scale(1)`;
+        activeCard.style.transition = 'none'; // Disable transition during drag
+      }
+      
+      e.preventDefault();
+    }, { passive: false });
+    
+    container.addEventListener('touchend', (e) => {
+      if (!isDragging) return;
+      
+      const endTime = Date.now();
+      const deltaX = currentX - startX;
+      const deltaY = Math.abs(currentY - startY);
+      const deltaTime = endTime - startTime;
+      const velocity = Math.abs(deltaX) / deltaTime;
+      
+      // Reset visual feedback
+      const activeCard = container.querySelector('.hotel-card.active');
+      if (activeCard) {
+        activeCard.style.transform = '';
+        activeCard.style.transition = '';
+      }
+      
+      // Determine if this was a valid swipe
+      const isValidSwipe = Math.abs(deltaX) > SWIPE_THRESHOLD && 
+                          deltaY < MAX_VERTICAL_DEVIATION &&
+                          (velocity > SWIPE_VELOCITY_THRESHOLD || Math.abs(deltaX) > SWIPE_THRESHOLD * 2);
+      
+      if (isValidSwipe) {
+        if (deltaX > 0) {
+          // Swipe right - go to previous
+          goToPrevious();
+        } else {
+          // Swipe left - go to next
+          goToNext();
+        }
+      }
+      
+      isDragging = false;
+      e.preventDefault();
+    }, { passive: false });
+    
+    // Mouse Events (for desktop)
+    container.addEventListener('mousedown', (e) => {
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = startX;
+      currentY = startY;
+      isDragging = true;
+      startTime = Date.now();
+      
+      // Prevent text selection
+      e.preventDefault();
+    });
+    
+    container.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      
+      currentX = e.clientX;
+      currentY = e.clientY;
+      
+      const deltaX = currentX - startX;
+      const deltaY = Math.abs(currentY - startY);
+      
+      if (deltaY > MAX_VERTICAL_DEVIATION) {
+        isDragging = false;
+        return;
+      }
+      
+      // Visual feedback for mouse drag
+      const activeCard = container.querySelector('.hotel-card.active');
+      if (activeCard && Math.abs(deltaX) > 5) {
+        const translateAmount = deltaX * 0.3;
+        activeCard.style.transform = `translateX(${translateAmount}px) scale(1)`;
+        activeCard.style.transition = 'none';
+        container.style.cursor = 'grabbing';
+      }
+    });
+    
+    container.addEventListener('mouseup', (e) => {
+      if (!isDragging) return;
+      
+      const endTime = Date.now();
+      const deltaX = currentX - startX;
+      const deltaY = Math.abs(currentY - startY);
+      const deltaTime = endTime - startTime;
+      const velocity = Math.abs(deltaX) / deltaTime;
+      
+      // Reset visual feedback
+      const activeCard = container.querySelector('.hotel-card.active');
+      if (activeCard) {
+        activeCard.style.transform = '';
+        activeCard.style.transition = '';
+      }
+      container.style.cursor = '';
+      
+      const isValidSwipe = Math.abs(deltaX) > SWIPE_THRESHOLD && 
+                          deltaY < MAX_VERTICAL_DEVIATION &&
+                          (velocity > SWIPE_VELOCITY_THRESHOLD || Math.abs(deltaX) > SWIPE_THRESHOLD * 1.5);
+      
+      if (isValidSwipe) {
+        if (deltaX > 0) {
+          goToPrevious();
+        } else {
+          goToNext();
+        }
+      }
+      
+      isDragging = false;
+    });
+    
+    // Handle mouse leave to reset state
+    container.addEventListener('mouseleave', () => {
+      if (isDragging) {
+        const activeCard = container.querySelector('.hotel-card.active');
+        if (activeCard) {
+          activeCard.style.transform = '';
+          activeCard.style.transition = '';
+        }
+        container.style.cursor = '';
+        isDragging = false;
+      }
+    });
+    
+    // Add cursor styles
+    container.style.cursor = 'grab';
+    container.style.userSelect = 'none';
+    
+    console.log('Swipe gestures enabled for hotel cards');
   }
 
   // Initialize
