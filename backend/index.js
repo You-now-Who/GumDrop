@@ -14,13 +14,13 @@ const GEOCODING_KEY = process.env.GEOCODING_KEY;
 
 // Gets list of available hotels
 app.post("/api/hotels", async (req, res) => {
-  const { location, radius } = req.body;
+  const { location, address, radius } = req.body;
   try {
     // Fetches the Lat and Lon from the location
     const geoRes = await fetch("http://localhost:3000/api/geolocate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location }),
+      body: JSON.stringify({ location, address }),
     });
     const { lat, lon } = await geoRes.json();
 
@@ -90,16 +90,92 @@ app.post("/api/hotels_details", async (req, res) => {
       "X-API-Key": LITEAPI_KEY,
     },
     body: JSON.stringify({
-      hotelIds: ["lp658091ac", "lp656cdbd1"],
+      hotelIds: hotelIds,
       occupancies: [{ adults: 1 }],
       currency: "GBP",
       guestNationality: "IN",
-      checkin: "2025-11-01",
-      checkout: "2025-11-02",
+      checkin: checkin,
+      checkout: checkout,
     }),
   };
 
-  res.json({Hi: "hi"});
+  const r = await fetch(url, options);
+  const j = await r.json();
+  j.checkin = checkin;
+  j.checkout = checkout;
+  res.json(j);
+
+});
+
+// Prebook a hotel room
+app.post("/api/prebook", async (req, res) => {
+  const { offerId } = req.body;
+  
+  try {
+    const url = "https://api.liteapi.travel/v3.0/rates/prebook";
+    const options = {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "X-API-Key": LITEAPI_KEY,
+      },
+      body: JSON.stringify({usePaymentSdk: true, offerId: offerId})
+    };
+
+    const r = await fetch(url, options);
+    const j = await r.json();
+    
+    if (!r.ok) {
+      return res.status(r.status).json({ error: j.message || "Prebook failed", details: j });
+    }
+    
+    res.json(j);
+  } catch (err) {
+    console.error("Prebook error:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Complete hotel booking
+app.post("/api/book", async (req, res) => {
+  const { prebookId, guestInfo, paymentMethod } = req.body;
+  
+  try {
+    const url = "https://api.liteapi.travel/v3.0/hotels/rates/book";
+    const options = {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "X-API-Key": LITEAPI_KEY,
+      },
+      body: JSON.stringify({
+        prebookId: prebookId,
+        guestInfo: guestInfo || {
+          guestFirstName: "John",
+          guestLastName: "Doe", 
+          guestEmail: "john.doe@example.com",
+          guestPhoneNumber: "+1234567890"
+        },
+        paymentMethod: paymentMethod || "NUITEE_PAY",
+        holderName: guestInfo?.guestFirstName + " " + guestInfo?.guestLastName || "John Doe",
+        paymentMethodId: "pm_test_card"
+      }),
+    };
+
+    const r = await fetch(url, options);
+    const j = await r.json();
+    
+    if (!r.ok) {
+      return res.status(r.status).json({ error: j.message || "Booking failed", details: j });
+    }
+    
+    res.json(j);
+  } catch (err) {
+    console.error("Booking error:", err);
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 // Proxy to OpenAI for LLM summarization
@@ -129,11 +205,33 @@ app.post("/api/ai", async (req, res) => {
 });
 
 app.post("/api/geolocate", async (req, res) => {
-  const { location } = req.body;
+  const { location, address } = req.body;
 
   const url = `https://geocode.maps.co/search?q=${location}&api_key=${GEOCODING_KEY}`;
   const r = await fetch(url);
-  const j = await r.json();
+  const rawText = await r.text();
+  console.log(rawText);
+
+  let j;
+  try {
+    j = JSON.parse(rawText);
+    // If no results, try with address
+    if (!Array.isArray(j) || j.length === 0) {
+      const url2 = `https://geocode.maps.co/search?q=${address}&api_key=${GEOCODING_KEY}`;
+      const r2 = await fetch(url2);
+      const rawText2 = await r2.text();
+      try {
+        j = JSON.parse(rawText2);
+      } catch (err) {
+        return res.status(500).json({ error: "Response is not valid JSON", raw: rawText2 });
+      }
+      if (!Array.isArray(j) || j.length === 0) {
+        return res.status(404).json({ error: "No geocoding results found for location or address." });
+      }
+    }
+  } catch (err) {
+    return res.status(500).json({ error: "Response is not valid JSON", raw: rawText });
+  }
 
   const lat = j[0].lat;
   const lon = j[0].lon;

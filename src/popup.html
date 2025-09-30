@@ -10,14 +10,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
-<body class="w-96 bg-gradient-to-br from-slate-50 via-white to-yellow-50 font-inter">
+<body class="w-96 h-screen overflow-hidden overscroll-none bg-gradient-to-br from-slate-50 via-white to-yellow-50 font-inter">
   <!-- Floating Navigation -->
   <nav class="top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/50">
     <div class="flex items-center justify-between p-4">
       <div class="flex items-center space-x-3">
         <div class="relative">
           <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-400 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-6 transition-transform duration-300">
-            <span class="text-2xl">🍬</span>
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
           </div>
           <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
         </div>
@@ -32,16 +34,24 @@
           </div>
         </div>
       </div>
-      <button class="w-8 h-8 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition-colors">
-        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
+      
+      <!-- User Greeting -->
+      <div id="user-greeting" class="flex items-center space-x-2">
+        <div class="text-right">
+          <div class="text-xs text-slate-500 font-medium">Hello,</div>
+          <div id="user-name" class="text-sm font-semibold text-slate-700">Guest</div>
+        </div>
+        <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-500 rounded-xl flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          </svg>
+        </div>
+      </div>
     </div>
   </nav>
 
   <!-- Main Content -->
-  <main class="p-4 space-y-4 max-h-96 overflow-y-auto">
+  <main class="p-4 space-y-4 max-h-100 overflow-y-auto">
     <!-- Event Status Bar -->
     <div class="bg-white rounded-2xl p-4 border border-slate-200/50 shadow-sm">
       <div id="loading" class="hidden flex items-center justify-center py-4">
@@ -52,7 +62,11 @@
       </div>
       
       <div id="no-event" class="text-center py-4">
-        <div class="text-3xl mb-2">🎫</div>
+        <div class="w-12 h-12 mx-auto mb-2 bg-slate-100 rounded-2xl flex items-center justify-center">
+          <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
+          </svg>
+        </div>
         <p class="text-sm font-bold text-slate-900 mb-1">No Event Detected</p>
         <p class="text-xs text-slate-600">Navigate to an Eventbrite page to get started</p>
       </div>
@@ -60,17 +74,25 @@
       <div id="event-details" class="hidden">
         <div class="flex items-start space-x-3">
           <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <span class="text-white text-sm">🎯</span>
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
           </div>
           <div class="flex-1 min-w-0">
             <h2 class="font-bold text-slate-900 text-sm leading-tight mb-1" id="event-title">Event Title</h2>
             <div class="space-y-1">
               <p class="text-xs text-slate-600 flex items-center">
-                <span class="mr-2">📅</span>
+                <svg class="w-3 h-3 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
                 <span id="event-date">Date</span>
               </p>
               <p class="text-xs text-slate-600 flex items-center">
-                <span class="mr-2">📍</span>
+                <svg class="w-3 h-3 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
                 <span id="event-location">Location</span>
               </p>
             </div>
@@ -79,21 +101,60 @@
       </div>
     </div>
 
+    <!-- Search Filters -->
+    <div id="search-filters" class="hidden mb-4">
+      <div class="bg-slate-50 rounded-2xl p-3 border border-slate-200">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-bold text-slate-700">Search Radius</label>
+          <span id="radius-value" class="text-xs text-slate-500 font-medium">3km</span>
+        </div>
+        <input type="range" id="radius-slider" min="500" max="10000" value="3000" step="500" 
+               class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+        <div class="flex justify-between text-xs text-slate-400 mt-1">
+          <span>0.5km</span>
+          <span>5km</span>
+          <span>10km</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Booking Hero -->
     <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-5 text-center shadow-lg">
-      <div class="text-3xl mb-2">⚡</div>
+      <div class="w-12 h-12 mx-auto mb-2 bg-white/20 rounded-2xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
       <h2 class="text-lg font-black text-white mb-2">Quick Hotel Booking</h2>
       <p class="text-yellow-100 text-sm mb-4 font-medium">Get instant recommendations & book in one click</p>
       <button 
         id="generate-btn" 
-        class="w-full bg-white hover:bg-yellow-50 text-slate-900 font-bold rounded-xl py-3 px-6 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+        class="w-full bg-white hover:bg-yellow-50 text-slate-900 font-bold rounded-xl py-3 px-6 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2"
       >
-        🚀 Find & Book Hotels
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9"/>
+        </svg>
+        <span>Find & Book Hotels</span>
       </button>
     </div>
 
     <!-- Quick Hotel Results -->
     <div id="hotels-section" class="hidden">
+      <!-- Booking Dates Info -->
+      <div id="booking-dates" class="hidden bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-blue-900">Your Stay Dates</p>
+            <p class="text-sm font-bold text-blue-700" id="stay-dates">Check-in → Check-out</p>
+          </div>
+        </div>
+      </div>
+      
       <!-- Quick Results List -->
       <div id="quick-results" class="space-y-3">
         <!-- Top 3 hotels for quick booking will be shown here -->
@@ -106,7 +167,9 @@
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center space-x-3">
               <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
-                <span class="text-white">🏨</span>
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
               </div>
               <div>
                 <h3 class="font-black text-slate-800">All Hotels</h3>
@@ -135,7 +198,7 @@
           </div>
           
           <!-- Detailed Hotel Cards Container -->
-          <div id="hotels-container" class="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/50">
+          <div id="hotels-container" class="relative h-70 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/50">
             <div id="hotels-stack" class="relative w-full h-full">
               <!-- Detailed hotel cards will be inserted here -->
             </div>
@@ -144,6 +207,110 @@
       </div>
     </div>
   </main>
+
+  <!-- Pre-booking Modal -->
+  <div id="prebooking-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm max-h-96 overflow-y-auto shadow-xl">
+      <!-- Header -->
+      <div class="sticky top-0 bg-white border-b border-slate-200 p-4 rounded-t-2xl">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-black text-slate-800 text-sm">Booking Details</h3>
+              <p class="text-xs text-slate-500" id="booking-hotel-name">Hotel Name</p>
+            </div>
+          </div>
+          <button id="close-prebooking" class="w-6 h-6 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors">
+            <svg class="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="p-4 space-y-4">
+        <!-- Room Details -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <h4 class="font-bold text-blue-900 text-sm mb-2">Room Selection</h4>
+          <p class="text-sm font-medium text-blue-800" id="room-name">Standard King Room</p>
+          <p class="text-xs text-blue-600" id="room-board">Room Only</p>
+        </div>
+
+        <!-- Pricing Breakdown -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <h4 class="font-bold text-slate-900 text-sm mb-3">Price Breakdown</h4>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-600">Room Rate</span>
+              <span class="font-medium" id="room-rate">$163.66</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Taxes & Fees</span>
+              <span class="font-medium" id="taxes-fees">$23.53</span>
+            </div>
+            <div id="facility-fee" class="flex justify-between text-orange-600">
+              <span>Facility Fee</span>
+              <span class="font-medium" id="facility-amount">$43.61</span>
+            </div>
+            <div class="border-t border-slate-300 pt-2 flex justify-between font-black text-slate-900">
+              <span>Total</span>
+              <span id="total-price">$230.80</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cancellation Policy -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+          <h4 class="font-bold text-yellow-900 text-sm mb-2">Cancellation Policy</h4>
+          <p class="text-xs text-yellow-800" id="cancellation-info">Free cancellation until 2:00 AM on Mar 30, 2025</p>
+          <div class="flex items-center mt-2">
+            <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+            <span class="text-xs font-medium text-green-700" id="refund-tag">Refundable</span>
+          </div>
+        </div>
+
+        <!-- Guest Details -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <h4 class="font-bold text-slate-900 text-sm mb-2">Booking Details</h4>
+          <div class="space-y-1 text-xs text-slate-600">
+            <div class="flex justify-between">
+              <span>Guests</span>
+              <span id="guest-count">2 Adults</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Booking ID</span>
+              <span class="font-mono" id="prebook-id">zzWkJcdgk</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Payment</span>
+              <span id="payment-type">Nuitee Pay</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-2 pt-2">
+          <button id="confirm-booking" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+            <div class="flex items-center justify-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Confirm Booking</span>
+            </div>
+          </button>
+          <button id="cancel-booking" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-xl transition-all duration-200">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Floating Bottom Bar -->
   <!-- <div class="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-slate-200/50 p-4">

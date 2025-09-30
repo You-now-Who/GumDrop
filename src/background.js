@@ -1,5 +1,33 @@
 let eventDetails = null;
 
+// Handle extension installation
+chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log('Extension installed with reason:', details.reason);
+  if (details.reason === 'install') {
+    try {
+      // Check if user has already completed setup
+      const storage = await chrome.storage.local.get(['setupCompleted', 'setupSkipped']);
+      console.log('Storage check:', storage);
+      
+      if (!storage.setupCompleted && !storage.setupSkipped) {
+        // Open setup page on first install
+        console.log('Opening setup page');
+        chrome.tabs.create({ 
+          url: chrome.runtime.getURL('setup.html'),
+          active: true 
+        });
+      }
+    } catch (error) {
+      console.error('Error in onInstalled:', error);
+      // Fallback: always open setup on install if there's an error
+      chrome.tabs.create({ 
+        url: chrome.runtime.getURL('setup.html'),
+        active: true 
+      });
+    }
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'EVENT_DETAILS') {
     eventDetails = msg.payload;

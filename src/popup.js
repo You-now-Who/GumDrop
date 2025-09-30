@@ -1,4 +1,23 @@
 document.addEventListener('DOMContentLoaded', async function() {
+  // Check if user has completed setup
+  try {
+    const storage = await chrome.storage.local.get(['setupCompleted', 'setupSkipped']);
+    console.log('Popup setup check:', storage);
+    
+    if (!storage.setupCompleted && !storage.setupSkipped) {
+      // Redirect to setup page
+      console.log('Redirecting to setup page');
+      chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
+      window.close();
+      return;
+    }
+  } catch (error) {
+    console.error('Error checking setup status:', error);
+  }
+
+  // Load and display user name
+  loadUserName();
+
   const generateBtn = document.getElementById('generate-btn');
   const loadingDiv = document.getElementById('loading');
   const noEventDiv = document.getElementById('no-event');
@@ -12,6 +31,73 @@ document.addEventListener('DOMContentLoaded', async function() {
   const eventLocation = document.getElementById('event-location');
 
   let currentEventData = null;
+  let currentRadius = 3000; // Default 3km
+
+  // Format date to readable format
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    const options = { month: 'short', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  }
+
+  // Get user profile data
+  async function getUserProfile() {
+    try {
+      const storage = await chrome.storage.local.get(['userProfile']);
+      return storage.userProfile || {
+        firstName: "Guest",
+        lastName: "User",
+        email: "guest@gumdrop.com", 
+        phone: "+1234567890"
+      };
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      return {
+        firstName: "Guest",
+        lastName: "User", 
+        email: "guest@gumdrop.com",
+        phone: "+1234567890"
+      };
+    }
+  }
+
+  // Load and display user name
+  async function loadUserName() {
+    try {
+      const userProfile = await getUserProfile();
+      const userNameElement = document.getElementById('user-name');
+      
+      if (userNameElement) {
+        // Display first name, or "Guest" if no profile
+        const displayName = userProfile.firstName || "Guest";
+        userNameElement.textContent = displayName;
+      }
+    } catch (error) {
+      console.error('Error loading user name:', error);
+      const userNameElement = document.getElementById('user-name');
+      if (userNameElement) {
+        userNameElement.textContent = "Guest";
+      }
+    }
+  }
+
+  // Setup radius filter
+  function setupRadiusFilter() {
+    const radiusSlider = document.getElementById('radius-slider');
+    const radiusValue = document.getElementById('radius-value');
+    
+    if (radiusSlider && radiusValue) {
+      radiusSlider.addEventListener('input', function() {
+        currentRadius = parseInt(this.value);
+        const kmValue = (currentRadius / 1000).toFixed(1);
+        radiusValue.textContent = kmValue + 'km';
+      });
+      
+      // Initialize display
+      const initialKm = (currentRadius / 1000).toFixed(1);
+      radiusValue.textContent = initialKm + 'km';
+    }
+  }
 
   // Update API status indicator
   function updateApiStatus(status) {
@@ -137,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     // Show loading state
-    generateBtn.textContent = '⏳ Finding Hotels...';
+    generateBtn.innerHTML = '<svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Finding Hotels...';
     generateBtn.disabled = true;
     
     try {
@@ -160,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async function() {
           body: JSON.stringify({
             location: currentEventData.location,
             address: currentEventData.address,
-            radius: 3000 // 1km radius
+            radius: currentRadius
           })
         });
         
@@ -209,6 +295,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                       currency: bestRoom.offerRetailRate.currency,
                       roomName: bestRoom.rates[0]?.name || 'Standard Room',
                       boardName: bestRoom.rates[0]?.boardName || '',
+                      rateId: bestRoom.rates[0]?.rateId,
                       checkin: pricingData.checkin,
                       checkout: pricingData.checkout
                     };
@@ -255,7 +342,12 @@ document.addEventListener('DOMContentLoaded', async function() {
       resultsSection.classList.remove('hidden');
       resultsSection.innerHTML = `
         <div class="mt-4 pt-3 border-t border-gray-200">
-          <p class="text-xs text-red-500 mb-2 font-medium">❌ Error fetching hotels</p>
+          <p class="text-xs text-red-500 mb-2 font-medium flex items-center">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Error fetching hotels
+          </p>
           <div class="bg-red-50 rounded-lg p-3 text-sm border border-red-200">
             <p class="text-red-700 font-medium">Failed to connect to hotel service. Make sure the backend server is running on localhost:3000</p>
             <p class="text-red-600 text-xs mt-1">Error: ${error.message}</p>
@@ -263,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         </div>
       `;
     } finally {
-      generateBtn.textContent = '✨ Generate Stay Plan';
+      generateBtn.innerHTML = '<svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9"/></svg>Find & Book Hotels';
       generateBtn.disabled = false;
     }
   });
@@ -279,6 +371,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     const hotels = hotelData.data || [];
     hotelCards = hotels; // Store for navigation
     
+    // Show booking dates if we have pricing data
+    if (hotels.length > 0 && hotels[0].pricing) {
+      const bookingDates = document.getElementById('booking-dates');
+      const stayDates = document.getElementById('stay-dates');
+      if (bookingDates && stayDates) {
+        const checkin = formatDate(hotels[0].pricing.checkin);
+        const checkout = formatDate(hotels[0].pricing.checkout);
+        stayDates.textContent = `${checkin} → ${checkout}`;
+        bookingDates.classList.remove('hidden');
+      }
+    }
+    
     if (hotels.length > 0) {
       // Show quick results first (top 3 hotels)
       displayQuickResults(hotels.slice(0, 3));
@@ -288,7 +392,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     } else {
       document.getElementById('quick-results').innerHTML = `
         <div class="bg-white rounded-2xl p-6 text-center border border-slate-200/50">
-          <div class="text-4xl mb-3">🏨</div>
+          <div class="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-2xl flex items-center justify-center">
+            <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
           <p class="text-lg font-bold text-slate-900 mb-2">No hotels found</p>
           <p class="text-sm text-slate-600">Try searching in a different area</p>
         </div>
@@ -334,7 +442,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             <div class="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex-shrink-0 overflow-hidden relative">
               ${photo ? `<img src="${photo}" alt="${name}" class="w-full h-full object-cover">` : `
                 <div class="flex items-center justify-center h-full">
-                  <span class="text-2xl">🏨</span>
+                  <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                  </svg>
                 </div>
               `}
               ${isBestDeal ? `
@@ -350,23 +460,32 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <h3 class="font-bold text-slate-900 text-sm leading-tight line-clamp-1">${name}</h3>
                 <div class="flex items-center space-x-1 text-xs text-yellow-600 font-bold ml-2">
                   <span>${rating}</span>
-                  <span>⭐</span>
+                  <svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
                 </div>
               </div>
               
               <div class="flex items-center space-x-3 text-xs text-slate-600 mb-2">
                 <span class="flex items-center">
-                  <span class="mr-1">📍</span>
+                  <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
                   ${distance}
                 </span>
                 ${roomInfo ? `
                   <span class="flex items-center">
-                    <span class="mr-1">🍽️</span>
+                    <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
+                    </svg>
                     ${roomInfo}
                   </span>
                 ` : `
                   <span class="flex items-center">
-                    <span class="mr-1">🚗</span>
+                    <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8h4m-4 4h4"/>
+                    </svg>
                     Free parking
                   </span>
                 `}
@@ -376,15 +495,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <div>
                   <p class="text-xs text-slate-500">${hotel.pricing ? 'Per night from' : 'Est. per night'}</p>
                   <p class="font-black text-slate-900 text-lg">${price}</p>
-                  ${hotel.pricing && hotel.pricing.checkin && hotel.pricing.checkout ? `
-                    <p class="text-xs text-slate-400">${hotel.pricing.checkin} - ${hotel.pricing.checkout}</p>
-                  ` : ''}
                 </div>
                 
                 <!-- One-Click Book Button -->
-                <button class="book-now-btn bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                <button class="book-now-btn bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-1"
                         data-hotel-name="${name}" data-hotel-price="${price}">
-                  📅 Book Now
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <span>Book Now</span>
                 </button>
               </div>
             </div>
@@ -400,7 +519,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     seeAllButton.innerHTML = `
       <button id="show-detailed" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-slate-400 transition-all duration-200">
         <div class="flex items-center justify-center space-x-2">
-          <span>🔍</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
           <span>See All ${hotelCards.length} Hotels</span>
         </div>
       </button>
@@ -462,13 +583,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             ${photo ? `<img src="${photo}" alt="${name}" class="w-full h-full object-cover">` : `
               <div class="flex items-center justify-center h-full">
                 <div class="w-10 h-10 bg-gradient-to-br from-slate-300 to-slate-400 rounded-xl flex items-center justify-center">
-                  <span class="text-xl text-white">🏨</span>
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                  </svg>
                 </div>
               </div>
             `}
             
-            <div class="absolute top-2 right-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-2 py-1 rounded-xl text-xs font-black shadow-sm">
-              ${rating}⭐
+            <div class="absolute top-2 right-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-2 py-1 rounded-xl text-xs font-black shadow-sm flex items-center space-x-1">
+              <span>${rating}</span>
+              <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
             </div>
           </div>
           
@@ -482,39 +608,47 @@ document.addEventListener('DOMContentLoaded', async function() {
               <!-- Amenities -->
               <div class="flex items-center space-x-2 mb-3">
                 <div class="w-5 h-5 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span class="text-xs">🏊</span>
+                  <svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
                 </div>
                 <div class="w-5 h-5 bg-green-100 rounded-lg flex items-center justify-center">
-                  <span class="text-xs">🚗</span>
+                  <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8h4m-4 4h4"/>
+                  </svg>
                 </div>
                 <div class="w-5 h-5 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <span class="text-xs">📶</span>
+                  <svg class="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                  </svg>
                 </div>
                 <div class="w-5 h-5 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <span class="text-xs">☕</span>
+                  <svg class="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0A1.5 1.5 0 013 15.546V6.454a1.5 1.5 0 011.5-.454c.523 0 1.046.151 1.5.454a2.704 2.704 0 003 0 2.704 2.704 0 013 0 2.704 2.704 0 003 0 2.704 2.704 0 013 0c.454-.303.977-.454 1.5-.454A1.5 1.5 0 0121 6.454v9.092z"/>
+                  </svg>
                 </div>
               </div>
               
               <div class="flex items-center justify-between mb-3">
-                <div>
+                <div class="flex-1">
                   <p class="text-xs text-slate-500 font-medium">${hotel.pricing ? 'Per night' : 'Est. per night'}</p>
                   <p class="font-black text-slate-900 text-lg">${price}</p>
                   ${hotel.pricing && hotel.pricing.boardName ? `
                     <p class="text-xs text-green-600 font-medium">${hotel.pricing.boardName}</p>
                   ` : ''}
                 </div>
+                
+                <!-- Booking Button on the Right -->
+                <div class="flex flex-col gap-1">
+                  <button class="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 hover:scale-105 shadow-lg book-detailed-btn"
+                          data-hotel-name="${name}" data-hotel-price="${price}">
+                    Book Now
+                  </button>
+                  <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 hover:scale-105">
+                    More Info
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="flex gap-2 mt-auto">
-              <button class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs transition-all duration-200 hover:scale-105">
-                More Info
-              </button>
-              <button class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-3 py-2 rounded-xl font-bold text-xs transition-all duration-200 hover:scale-105 shadow-lg book-detailed-btn"
-                      data-hotel-name="${name}" data-hotel-price="${price}">
-                Book Now
-              </button>
             </div>
           </div>
         </div>
@@ -537,39 +671,194 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Show detailed view button
     document.getElementById('show-detailed')?.addEventListener('click', function() {
       document.getElementById('detailed-view').classList.remove('hidden');
+      document.getElementById('search-filters').classList.remove('hidden');
       setupHotelNavigation();
     });
 
     // Close detailed view button
     document.getElementById('close-detailed')?.addEventListener('click', function() {
       document.getElementById('detailed-view').classList.add('hidden');
+      document.getElementById('search-filters').classList.add('hidden');
     });
   }
 
-  function handleQuickBooking(hotelName, hotelPrice, button) {
-    // Simulate booking process
+  async function handleQuickBooking(hotelName, hotelPrice, button) {
+    // Show loading state
     const originalText = button.innerHTML;
-    button.innerHTML = '⏳ Booking...';
+    button.innerHTML = '<svg class="w-3 h-3 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Loading...';
     button.disabled = true;
     
-    setTimeout(() => {
-      button.innerHTML = '✅ Booked!';
-      button.className = 'bg-green-500 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md';
+    try {
+      // Get the hotel data to find the rate ID
+      const hotelData = findHotelByName(hotelName);
+      if (!hotelData || !hotelData.rateId) {
+        throw new Error('Hotel rate information not found');
+      }
       
-      // Show success message
-      const card = button.closest('.bg-white');
-      card.style.transform = 'scale(0.98)';
-      card.style.opacity = '0.7';
+      // Call prebook API
+      console.log('Calling prebook API for rate:', hotelData.rateId);
+      const prebookResponse = await fetch('http://localhost:3000/api/prebook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rateId: hotelData.rateId,
+          guestInfo: {
+            guestFirstName: "John",
+            guestLastName: "Doe",
+            guestEmail: "john.doe@example.com"
+          }
+        })
+      });
       
-      // Reset after 2 seconds
-      setTimeout(() => {
-        button.innerHTML = originalText;
-        button.disabled = false;
-        button.className = 'book-now-btn bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200';
-        card.style.transform = '';
-        card.style.opacity = '';
-      }, 2000);
-    }, 1000);
+      if (!prebookResponse.ok) {
+        throw new Error(`Prebook failed: ${prebookResponse.status}`);
+      }
+      
+      const prebookData = await prebookResponse.json();
+      console.log('Prebook response:', prebookData);
+      
+      // Reset button
+      button.innerHTML = originalText;
+      button.disabled = false;
+      
+      // Show prebooking modal with real API data
+      showPrebookingModal({
+        hotelName: hotelName,
+        hotelPrice: hotelPrice,
+        prebookingData: prebookData.data,
+        rateId: hotelData.rateId
+      });
+      
+    } catch (error) {
+      console.error('Prebook error:', error);
+      
+      // Reset button
+      button.innerHTML = originalText;
+      button.disabled = false;
+      
+      // Show error or fallback to sample data
+      showPrebookingModal({
+        hotelName: hotelName,
+        hotelPrice: hotelPrice,
+        prebookingData: {
+          prebookId: "demo_" + Math.random().toString(36).substr(2, 9),
+          roomName: "Standard King Room - Room only",
+          boardName: "Room Only",
+          roomRate: 163.66,
+          taxesFees: 23.53,
+          facilityFee: 43.61,
+          totalPrice: 230.80,
+          currency: "USD",
+          guestCount: "2 Adults",
+          paymentType: "Nuitee Pay",
+          cancellationInfo: "Free cancellation until 2:00 AM on Mar 30, 2025",
+          refundable: true,
+          isDemo: true
+        }
+      });
+    }
+  }
+
+  // Helper function to find hotel data by name
+  function findHotelByName(hotelName) {
+    if (!hotelCards || hotelCards.length === 0) return null;
+    
+    const hotel = hotelCards.find(h => h.name === hotelName);
+    if (hotel && hotel.pricing && hotel.pricing.rateId) {
+      return {
+        ...hotel,
+        rateId: hotel.pricing.rateId
+      };
+    }
+    return null;
+  }
+
+  function showPrebookingModal(bookingDetails) {
+    const modal = document.getElementById('prebooking-modal');
+    const { hotelName, prebookingData } = bookingDetails;
+    
+    // Store prebook data for later booking confirmation
+    window.currentPrebookData = prebookingData;
+    
+    // Handle real API data vs demo data
+    let roomName, boardName, roomRate, taxesFees, facilityFee, totalPrice, currency;
+    let prebookId, guestCount, paymentType, cancellationInfo, refundable;
+    
+    if (prebookingData.isDemo) {
+      // Use demo data structure
+      roomName = prebookingData.roomName;
+      boardName = prebookingData.boardName;
+      roomRate = prebookingData.roomRate;
+      taxesFees = prebookingData.taxesFees;
+      facilityFee = prebookingData.facilityFee;
+      totalPrice = prebookingData.totalPrice;
+      currency = prebookingData.currency;
+      prebookId = prebookingData.prebookId;
+      guestCount = prebookingData.guestCount;
+      paymentType = prebookingData.paymentType;
+      cancellationInfo = prebookingData.cancellationInfo;
+      refundable = prebookingData.refundable;
+    } else {
+      // Parse real API data
+      const roomType = prebookingData.roomTypes?.[0];
+      const rate = roomType?.rates?.[0];
+      
+      roomName = rate?.name || "Standard Room";
+      boardName = rate?.boardName || "Room Only";
+      roomRate = rate?.retailRate?.total?.[0]?.amount || 0;
+      currency = rate?.retailRate?.total?.[0]?.currency || prebookingData.currency || "USD";
+      
+      // Calculate taxes and fees
+      const taxesAndFees = rate?.retailRate?.taxesAndFees || [];
+      const includedTaxes = taxesAndFees.filter(tax => tax.included);
+      const excludedTaxes = taxesAndFees.filter(tax => !tax.included);
+      
+      taxesFees = includedTaxes.reduce((sum, tax) => sum + tax.amount, 0);
+      facilityFee = excludedTaxes.reduce((sum, tax) => sum + tax.amount, 0);
+      totalPrice = prebookingData.price || (roomRate + facilityFee);
+      
+      prebookId = prebookingData.prebookId;
+      guestCount = `${rate?.adultCount || 2} Adults`;
+      paymentType = rate?.paymentTypes?.[0] === "NUITEE_PAY" ? "Nuitee Pay" : "Property Pay";
+      
+      // Cancellation info
+      const cancelPolicy = rate?.cancellationPolicies?.cancelPolicyInfos?.[0];
+      if (cancelPolicy) {
+        const cancelDate = new Date(cancelPolicy.cancelTime);
+        cancellationInfo = `Free cancellation until ${cancelDate.toLocaleString()}`;
+      } else {
+        cancellationInfo = "Cancellation policy varies";
+      }
+      
+      refundable = rate?.cancellationPolicies?.refundableTag === "RFN";
+    }
+    
+    // Populate modal with booking details
+    document.getElementById('booking-hotel-name').textContent = hotelName;
+    document.getElementById('room-name').textContent = roomName;
+    document.getElementById('room-board').textContent = boardName;
+    document.getElementById('room-rate').textContent = `${currency === 'USD' ? '$' : '£'}${roomRate.toFixed(2)}`;
+    document.getElementById('taxes-fees').textContent = `${currency === 'USD' ? '$' : '£'}${taxesFees.toFixed(2)}`;
+    document.getElementById('facility-amount').textContent = `${currency === 'USD' ? '$' : '£'}${facilityFee.toFixed(2)}`;
+    document.getElementById('total-price').textContent = `${currency === 'USD' ? '$' : '£'}${totalPrice.toFixed(2)}`;
+    document.getElementById('prebook-id').textContent = prebookId;
+    document.getElementById('guest-count').textContent = guestCount;
+    document.getElementById('payment-type').textContent = paymentType;
+    document.getElementById('cancellation-info').textContent = cancellationInfo;
+    document.getElementById('refund-tag').textContent = refundable ? 'Refundable' : 'Non-refundable';
+    
+    // Show/hide facility fee row
+    const facilityFeeRow = document.getElementById('facility-fee');
+    if (facilityFee > 0) {
+      facilityFeeRow.classList.remove('hidden');
+    } else {
+      facilityFeeRow.classList.add('hidden');
+    }
+    
+    // Show modal
+    modal.classList.remove('hidden');
   }
   
   function createHotelCard(hotel, index) {
@@ -892,7 +1181,104 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Swipe gestures enabled for hotel cards');
   }
 
+  // Setup prebooking modal handlers
+  function setupPrebookingModal() {
+    const modal = document.getElementById('prebooking-modal');
+    const closeBtn = document.getElementById('close-prebooking');
+    const cancelBtn = document.getElementById('cancel-booking');
+    const confirmBtn = document.getElementById('confirm-booking');
+    
+    // Close modal handlers
+    [closeBtn, cancelBtn].forEach(btn => {
+      btn?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    });
+    
+    // Close on background click
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+      }
+    });
+    
+    // Confirm booking handler
+    confirmBtn?.addEventListener('click', async () => {
+      const originalText = confirmBtn.innerHTML;
+      confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Processing...';
+      confirmBtn.disabled = true;
+      
+      try {
+        const prebookData = window.currentPrebookData;
+        
+        if (!prebookData || prebookData.isDemo) {
+          // Demo booking - just simulate
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Demo Booking Complete!';
+        } else {
+          // Real booking via API
+          console.log('Confirming booking for prebook ID:', prebookData.prebookId);
+          
+          // Get user profile data
+          const userProfile = await getUserProfile();
+          
+          const bookingResponse = await fetch('http://localhost:3000/api/book', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              prebookId: prebookData.prebookId,
+              guestInfo: {
+                guestFirstName: userProfile.firstName,
+                guestLastName: userProfile.lastName,
+                guestEmail: userProfile.email,
+                guestPhoneNumber: userProfile.phone
+              },
+              paymentMethod: "NUITEE_PAY"
+            })
+          });
+          
+          if (!bookingResponse.ok) {
+            throw new Error(`Booking failed: ${bookingResponse.status}`);
+          }
+          
+          const bookingResult = await bookingResponse.json();
+          console.log('Booking confirmed:', bookingResult);
+          
+          confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Booking Confirmed!';
+        }
+        
+        confirmBtn.className = 'w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg';
+        
+        // Auto-close modal after success
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          confirmBtn.innerHTML = originalText;
+          confirmBtn.disabled = false;
+          confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Booking confirmation error:', error);
+        
+        // Show error state
+        confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Booking Failed';
+        confirmBtn.className = 'w-full bg-red-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg';
+        
+        // Reset after 3 seconds
+        setTimeout(() => {
+          confirmBtn.innerHTML = originalText;
+          confirmBtn.disabled = false;
+          confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+        }, 3000);
+      }
+    });
+  }
+
   // Initialize
+  setupRadiusFilter();
+  setupPrebookingModal();
   await Promise.all([
     loadEventData(),
     checkApiStatus()
