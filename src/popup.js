@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       return storage.userProfile || {
         firstName: "Guest",
         lastName: "User",
-        email: "guest@gumdrop.com", 
+        email: "guest@gumdrop.com",
         phone: "+1234567890"
       };
     } catch (error) {
