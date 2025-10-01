@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Complete - Gumdrop</title>
+    <script src="./modules/tailwindcss_cdn_405.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 font-inter">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b border-slate-200">
+        <div class="max-w-4xl mx-auto px-6 py-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-10 h-10 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-400 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-800">Gumdrop</h1>
+                    <p class="text-sm text-slate-600">Booking Confirmation</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto px-6 py-12">
+        <!-- Loading State -->
+        <div id="loading-state" class="text-center">
+            <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">Completing Your Booking...</h2>
+            <p class="text-slate-600 mb-8">Please wait while we finalize your hotel reservation</p>
+        </div>
+
+        <!-- Success State -->
+        <div id="success-state" class="hidden text-center">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-green-800 mb-4">Booking Confirmed! 🎉</h2>
+            <p class="text-lg text-slate-600 mb-8">Your hotel reservation has been successfully completed</p>
+            
+            <!-- Booking Details Card -->
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-left max-w-2xl mx-auto mb-8">
+                <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                    <svg class="w-6 h-6 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                    </svg>
+                    Booking Details
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-semibold text-slate-700 mb-2">Hotel Information</h4>
+                        <p class="font-bold text-slate-900" id="confirm-hotel-name">-</p>
+                        <p class="text-sm text-slate-600" id="confirm-room-type">-</p>
+                        <p class="text-sm text-slate-500" id="confirm-dates">-</p>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-700 mb-2">Booking Reference</h4>
+                        <p class="font-bold text-slate-900 font-mono" id="confirm-booking-id">-</p>
+                        <p class="text-sm text-slate-600" id="confirm-total-price">-</p>
+                    </div>
+                </div>
+                
+                <div class="mt-6 pt-6 border-t border-slate-200">
+                    <h4 class="font-semibold text-slate-700 mb-3">Guest Information</h4>
+                    <div id="confirm-guests" class="space-y-2">
+                        <!-- Guest details will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button id="email-confirmation" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    Email Confirmation
+                </button>
+                <button id="close-window" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-8 py-3 rounded-xl transition-all duration-200">
+                    Close Window
+                </button>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="hidden text-center">
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-red-800 mb-4">Booking Failed</h2>
+            <p class="text-lg text-slate-600 mb-8" id="error-message">There was an issue completing your booking</p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button id="retry-booking" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200">
+                    Try Again
+                </button>
+                <button id="contact-support" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-8 py-3 rounded-xl transition-all duration-200">
+                    Contact Support
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="booking-complete.js"></script>
+</body>
+</html>

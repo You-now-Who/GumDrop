@@ -1,4 +1,72 @@
 document.addEventListener('DOMContentLoaded', async function() {
+  // Notification System
+  function showNotification(message, type = 'info', duration = 5000) {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    const notificationId = 'notification_' + Date.now();
+    notification.id = notificationId;
+    
+    // Style based on type
+    let bgColor, textColor, icon;
+    switch (type) {
+      case 'error':
+        bgColor = 'bg-red-100 border-red-300';
+        textColor = 'text-red-800';
+        icon = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>';
+        break;
+      case 'success':
+        bgColor = 'bg-green-100 border-green-300';
+        textColor = 'text-green-800';
+        icon = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        break;
+      case 'warning':
+        bgColor = 'bg-yellow-100 border-yellow-300';
+        textColor = 'text-yellow-800';
+        icon = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>';
+        break;
+      default:
+        bgColor = 'bg-blue-100 border-blue-300';
+        textColor = 'text-blue-800';
+        icon = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>';
+    }
+
+    notification.className = `${bgColor} ${textColor} border rounded-lg p-3 shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 ease-in-out`;
+    notification.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <div class="flex-shrink-0">${icon}</div>
+        <div class="flex-1 text-sm font-medium">${message}</div>
+        <button class="flex-shrink-0 ml-2 text-current opacity-70 hover:opacity-100" onclick="hideNotification('${notificationId}')">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    container.appendChild(notification);
+
+    // Auto-hide after duration
+    if (duration > 0) {
+      setTimeout(() => hideNotification(notificationId), duration);
+    }
+  }
+
+  // Global function to hide notifications
+  window.hideNotification = function(notificationId) {
+    const notification = document.getElementById(notificationId);
+    if (notification) {
+      notification.style.transform = 'translateY(-100%)';
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }
+  };
+
   // Check if user has completed setup
   try {
     const storage = await chrome.storage.local.get(['setupCompleted', 'setupSkipped']);
@@ -213,6 +281,261 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     generateBtn.disabled = false;
     generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  // Booking Storage Functions
+  async function saveBookingToStorage(bookingResult, prebookData, holder, guests, eventDetails, additionalData = {}) {
+    try {
+      const bookingId = bookingResult.bookingId || bookingResult.id || 'GD' + Date.now().toString(36).toUpperCase();
+      const { hotelData, hotelName, hotelPrice } = additionalData;
+      
+      // Calculate dates and nights
+      const checkInDate = new Date(currentEventData?.date || new Date());
+      const checkOutDate = new Date(checkInDate);
+      checkOutDate.setDate(checkOutDate.getDate() + 1); // Default 1 night stay
+      
+      const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+      
+      const booking = {
+        id: bookingId,
+        bookingRef: bookingResult.bookingReference || bookingResult.confirmationNumber || bookingId,
+        timestamp: new Date().toISOString(),
+        status: 'confirmed',
+        hotel: {
+          id: hotelData?.id || prebookData.hotelId,
+          name: hotelName || hotelData?.name || prebookData.hotelName || 'Unknown Hotel',
+          image: hotelData?.images?.[0]?.url || hotelData?.image || './assets/icon128.png',
+          address: hotelData?.address || prebookData.hotelAddress || 'Unknown Address',
+          rating: hotelData?.rating || prebookData.rating || 'N/A',
+          location: hotelData?.location || prebookData.location
+        },
+        room: {
+          type: prebookData.roomName || hotelData?.roomType || 'Standard Room',
+          rateName: prebookData.rateName || prebookData.boardName || 'Room Only',
+          occupancy: prebookData.occupancy || guests?.length || 1
+        },
+        dates: {
+          checkIn: checkInDate.toISOString().split('T')[0],
+          checkOut: checkOutDate.toISOString().split('T')[0],
+          nights: nights
+        },
+        pricing: {
+          total: prebookData.totalPrice || hotelPrice?.total || 'N/A',
+          currency: prebookData.currency || hotelPrice?.currency || 'USD',
+          breakdown: {
+            roomRate: prebookData.roomRate || hotelPrice?.roomRate,
+            taxes: prebookData.taxesFees || hotelPrice?.taxes,
+            fees: prebookData.facilityFee || hotelPrice?.fees
+          }
+        },
+        holder: holder,
+        guests: guests,
+        event: {
+          title: eventDetails?.title || 'Unknown Event',
+          date: eventDetails?.date || 'Unknown Date',
+          location: eventDetails?.location || 'Unknown Location',
+          url: eventDetails?.url || window.location.href
+        },
+        prebookData: prebookData,
+        hotelData: hotelData,
+        apiResponse: bookingResult
+      };
+
+      // Get existing bookings
+      const existingBookings = await getStoredBookings();
+      existingBookings.push(booking);
+
+      // Store in Chrome storage
+      await chrome.storage.local.set({ 'gumdrop_bookings': existingBookings });
+      
+      console.log('Booking saved to storage:', booking);
+      return booking;
+    } catch (error) {
+      console.error('Error saving booking:', error);
+      throw error;
+    }
+  }
+
+  async function getStoredBookings() {
+    try {
+      const result = await chrome.storage.local.get(['gumdrop_bookings']);
+      return result.gumdrop_bookings || [];
+    } catch (error) {
+      console.error('Error retrieving bookings:', error);
+      return [];
+    }
+  }
+
+  async function getCurrentEventDetails() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentTab = tabs[0];
+      return {
+        title: currentEventData?.title || 'Unknown Event',
+        date: currentEventData?.date || 'Unknown Date', 
+        location: currentEventData?.location || 'Unknown Location',
+        url: currentTab?.url || window.location.href
+      };
+    } catch (error) {
+      console.error('Error getting current event details:', error);
+      return {
+        title: 'Unknown Event',
+        date: 'Unknown Date',
+        location: 'Unknown Location',
+        url: window.location.href
+      };
+    }
+  }
+
+  async function checkForExistingBooking() {
+    try {
+      const eventDetails = await getCurrentEventDetails();
+      const bookings = await getStoredBookings();
+      
+      // Check if there's a booking for this event
+      const existingBooking = bookings.find(booking => 
+        booking.event.url === eventDetails.url || 
+        (booking.event.title === eventDetails.title && booking.event.date === eventDetails.date)
+      );
+      
+      return existingBooking;
+    } catch (error) {
+      console.error('Error checking for existing booking:', error);
+      return null;
+    }
+  }
+
+  function showBookingView(booking) {
+    // Hide the main interface
+    const loadingDiv = document.getElementById('loading');
+    const noEventDiv = document.getElementById('no-event');
+    const eventDetailsDiv = document.getElementById('event-details');
+    const hotelResults = document.getElementById('hotel-results');
+    
+    [loadingDiv, noEventDiv, eventDetailsDiv, hotelResults].forEach(div => {
+      if (div) div.classList.add('hidden');
+    });
+    
+    // Create booking view container if it doesn't exist
+    let bookingViewDiv = document.getElementById('booking-view');
+    if (!bookingViewDiv) {
+      bookingViewDiv = document.createElement('div');
+      bookingViewDiv.id = 'booking-view';
+      bookingViewDiv.className = 'p-4';
+      document.body.appendChild(bookingViewDiv);
+    }
+    
+    // Create booking view HTML
+    bookingViewDiv.innerHTML = `
+      <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 mb-4">
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-green-800">Booking Confirmed!</h2>
+            <p class="text-sm text-green-600">Your stay is all set</p>
+          </div>
+        </div>
+        
+        <div class="bg-white border border-green-200 rounded-xl p-4 mb-4">
+          <div class="flex items-start space-x-4">
+            <img src="${booking.hotel.image || './assets/icon128.png'}" alt="${booking.hotel.name}" class="w-16 h-16 rounded-lg object-cover">
+            <div class="flex-1">
+              <h3 class="font-bold text-lg text-slate-800">${booking.hotel.name}</h3>
+              <p class="text-sm text-slate-600 mb-2">${booking.hotel.address}</p>
+              <div class="flex items-center space-x-4 text-xs text-slate-500">
+                <span>⭐ ${booking.hotel.rating}</span>
+                <span>${booking.room.type}</span>
+                <span>${booking.room.rateName}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="bg-white border border-green-200 rounded-xl p-4">
+            <div class="text-xs text-green-600 font-medium mb-1">CHECK-IN</div>
+            <div class="text-sm font-bold text-slate-800">${formatDate(booking.dates.checkIn)}</div>
+          </div>
+          <div class="bg-white border border-green-200 rounded-xl p-4">
+            <div class="text-xs text-green-600 font-medium mb-1">CHECK-OUT</div>
+            <div class="text-sm font-bold text-slate-800">${formatDate(booking.dates.checkOut)}</div>
+          </div>
+        </div>
+        
+        <div class="bg-white border border-green-200 rounded-xl p-4 mb-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-slate-700">Booking Reference</span>
+            <span class="text-sm font-bold text-green-700">${booking.bookingRef}</span>
+          </div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-slate-700">Total Cost</span>
+            <span class="text-lg font-bold text-green-700">${booking.pricing.currency} ${booking.prebookData.price}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-medium text-slate-700">Nights</span>
+            <span class="text-sm font-bold text-slate-700">${booking.dates.nights}</span>
+          </div>
+        </div>
+        
+        <div class="bg-white border border-green-200 rounded-xl p-4 mb-4">
+          <h4 class="font-bold text-slate-800 mb-2">Event Details</h4>
+          <p class="text-sm text-slate-700 font-medium">${booking.event.title}</p>
+          <p class="text-xs text-slate-500">${booking.event.date}</p>
+          <p class="text-xs text-slate-500">${booking.event.location}</p>
+        </div>
+        
+        <div class="flex space-x-3">
+          <button id="view-all-bookings" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-colors duration-200">
+            All Bookings
+          </button>
+          <button id="cancel-booking-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-xl transition-colors duration-200">
+            Cancel Booking
+          </button>
+        </div>
+      </div>
+    `;
+    
+    bookingViewDiv.classList.remove('hidden');
+    
+    // Add event listeners
+    document.getElementById('view-all-bookings')?.addEventListener('click', () => {
+      openAllBookingsPage();
+    });
+    
+    document.getElementById('cancel-booking-btn')?.addEventListener('click', () => {
+      cancelBooking(booking);
+    });
+  }
+
+  async function cancelBooking(booking) {
+    if (confirm(`Are you sure you want to cancel your booking at ${booking.hotel.name}? This action cannot be undone.`)) {
+      try {
+        // Remove from storage
+        const bookings = await getStoredBookings();
+        const updatedBookings = bookings.filter(b => b.id !== booking.id);
+        await chrome.storage.local.set({ 'gumdrop_bookings': updatedBookings });
+        
+        showNotification('Booking cancelled successfully', 'success');
+        
+        // Hide booking view and show normal interface
+        document.getElementById('booking-view')?.classList.add('hidden');
+        await loadEventData(); // Reload the normal interface
+        
+      } catch (error) {
+        console.error('Error cancelling booking:', error);
+        showNotification('Failed to cancel booking', 'error');
+      }
+    }
+  }
+
+  function openAllBookingsPage() {
+    chrome.tabs.create({ 
+      url: chrome.runtime.getURL('all-bookings.html')
+    });
   }
 
   // Handle Generate Stay Plan button
@@ -726,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         hotelName: hotelName,
         hotelPrice: hotelPrice,
         prebookingData: prebookData.data,
+        hotelData: hotelData, // Include full hotel data
         rateId: hotelData.rateId
       });
       
@@ -740,6 +1064,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       showPrebookingModal({
         hotelName: hotelName,
         hotelPrice: hotelPrice,
+        hotelData: hotelData, // Include full hotel data even for demo
         prebookingData: {
           prebookId: "demo_" + Math.random().toString(36).substr(2, 9),
           roomName: "Standard King Room - Room only",
@@ -775,10 +1100,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   async function showPrebookingModal(bookingDetails) {
     const modal = document.getElementById('prebooking-modal');
-    const { hotelName, prebookingData, hotelPrice } = bookingDetails;
+    const { hotelName, prebookingData, hotelPrice, hotelData } = bookingDetails;
     
-    // Store prebook data for later booking confirmation
+    // Store complete booking data for later confirmation
     window.currentPrebookData = prebookingData;
+    window.currentHotelData = hotelData; // Store full hotel data
+    window.currentHotelName = hotelName;
+    window.currentHotelPrice = hotelPrice;
     
     // Handle real API data vs demo data
     let roomName, boardName, totalPrice, currency, prebookId;
@@ -1271,6 +1599,14 @@ document.addEventListener('DOMContentLoaded', async function() {
       addGuestForm();
     });
     
+    // Helper function to reset button state
+    function resetBookingButton() {
+      const originalText = '<div class="flex items-center justify-center space-x-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span>Complete Booking</span></div>';
+      confirmBtn.innerHTML = originalText;
+      confirmBtn.disabled = false;
+      confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+    }
+
     // Confirm booking handler
     confirmBtn?.addEventListener('click', async () => {
       const originalText = confirmBtn.innerHTML;
@@ -1331,17 +1667,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             throw new Error('At least one guest is required');
           }
           
-          // Get payment method
-          const paymentMethod = document.querySelector('input[name="payment-method"]:checked')?.value || 'TRANSACTION_ID';
-          
+          // Use simple transaction ID method for payment
           const bookingPayload = {
             holder: holder,
-            payment: {
-              method: paymentMethod,
-              transactionId: 'gmd_' + Math.random().toString(36).substr(2, 16) // Generate temporary transaction ID
-            },
             guests: guests,
-            prebookId: prebookData.prebookId
+            prebookId: prebookData.prebookId,
+            payment: {
+              method: 'ACC_CREDIT_CARD'
+              // transactionId: 'gmd_' + Math.random().toString(36).substr(2, 16)
+            }
           };
           
           console.log('Booking payload:', bookingPayload);
@@ -1354,12 +1688,31 @@ document.addEventListener('DOMContentLoaded', async function() {
             body: JSON.stringify(bookingPayload)
           });
           
+
+          // MAKE THE BOOKING API HERE
           if (!bookingResponse.ok) {
-            throw new Error(`Booking failed: ${bookingResponse.status}`);
+            const errorData = await bookingResponse.json().catch(() => ({}));
+            throw new Error(`Booking failed: ${errorData.error || 'Unknown error'}`);
           }
           
           const bookingResult = await bookingResponse.json();
           console.log('Booking confirmed:', bookingResult);
+          
+          // Store booking in local storage with event details
+          const eventDetails = await getCurrentEventDetails();
+          const fullHotelData = window.currentHotelData;
+          const hotelName = window.currentHotelName;
+          const hotelPrice = window.currentHotelPrice;
+          
+          console.log('prebookData:', prebookData);
+          console.log('fullHotelData:', fullHotelData);
+          console.log('hotelName:', hotelName);
+          
+          await saveBookingToStorage(bookingResult, prebookData, holder, guests, eventDetails, {
+            hotelData: fullHotelData,
+            hotelName: hotelName,
+            hotelPrice: hotelPrice
+          });
           
           confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Booking Confirmed!';
         }
@@ -1369,9 +1722,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Auto-close modal after success
         setTimeout(() => {
           modal.classList.add('hidden');
-          confirmBtn.innerHTML = originalText;
-          confirmBtn.disabled = false;
-          confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+          resetBookingButton();
         }, 2000);
         
       } catch (error) {
@@ -1391,6 +1742,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
   }
 
+  // All Bookings Button Handler
+  const allBookingsBtn = document.getElementById('all-bookings-btn');
+  allBookingsBtn?.addEventListener('click', () => {
+    chrome.tabs.create({ 
+      url: chrome.runtime.getURL('all-bookings.html')
+    });
+  });
+
   // Initialize
   setupRadiusFilter();
   setupPrebookingModal();
@@ -1398,4 +1757,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadEventData(),
     checkApiStatus()
   ]);
+  
+  // Check for existing booking for this event
+  const existingBooking = await checkForExistingBooking();
+  if (existingBooking) {
+    showBookingView(existingBooking);
+  }
 });

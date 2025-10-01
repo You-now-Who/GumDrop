@@ -3,8 +3,19 @@
   'use strict';
 
   console.log('Gumdrop content script loaded on:', window.location.href);
+  
+  async function getStoredBookings() {
+    try {
+      const result = await chrome.storage.local.get(['gumdrop_bookings']);
+      return result.gumdrop_bookings || [];
+    } catch (error) {
+      console.error('Error retrieving bookings:', error);
+      return [];
+    }
+  }
 
   let lastScrapedData = null;
+  let storedBookings = [];
 
   // Function to scrape event details from Eventbrite page
   function scrapeEventDetails() {
@@ -205,7 +216,11 @@
   });
 
   // Auto-scrape when page loads
-  function initialize() {
+  async function initialize() {
+    
+    const bookings = await getStoredBookings();
+    console.log(bookings);
+    
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {

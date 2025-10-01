@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Bookings - Gumdrop</title>
+  <script src="./modules/tailwindcss_cdn_405.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 font-inter">
+  
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-400 rounded-2xl flex items-center justify-center shadow-lg">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tight">Gumdrop</h1>
+            <p class="text-sm text-slate-500 font-medium">All Your Bookings</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+          <button id="refresh-bookings" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-xl transition-colors duration-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span>Refresh</span>
+          </button>
+          
+          <button id="clear-data" class="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-xl transition-colors duration-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            <span>Clear Data</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    
+    <!-- Loading State -->
+    <div id="loading-bookings" class="text-center py-12">
+      <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-slate-600 font-medium">Loading your bookings...</p>
+    </div>
+    
+    <!-- No Bookings State -->
+    <div id="no-bookings" class="hidden text-center py-16">
+      <div class="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 8h6m-6 0V9a2 2 0 012-2h4a2 2 0 012 2v6m-6 0a2 2 0 00-2 2v2a2 2 0 002 2h4a2 2 0 002-2v-2a2 2 0 00-2-2"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800 mb-3">No Bookings Yet</h2>
+      <p class="text-slate-600 mb-6">Start by visiting an Eventbrite event page and using the Gumdrop extension to find hotels!</p>
+      <a href="#" onclick="window.close()" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span>Back to Extension</span>
+      </a>
+    </div>
+    
+    <!-- Bookings Grid -->
+    <div id="bookings-container" class="hidden">
+      <div class="mb-8">
+        <h2 class="text-3xl font-bold text-slate-800 mb-2">Your Bookings</h2>
+        <p class="text-slate-600">Manage all your event accommodation bookings in one place.</p>
+      </div>
+      
+      <div id="bookings-grid" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <!-- Booking cards will be inserted here -->
+      </div>
+    </div>
+    
+  </main>
+
+  <!-- Booking Detail Modal -->
+  <div id="booking-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div id="modal-content">
+        <!-- Modal content will be inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="all-bookings.js"></script>
+</body>
+</html>

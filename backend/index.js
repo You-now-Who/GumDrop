@@ -120,7 +120,7 @@ app.post("/api/prebook", async (req, res) => {
         "content-type": "application/json",
         "X-API-Key": LITEAPI_KEY,
       },
-      body: JSON.stringify({usePaymentSdk: true, offerId: offerId})
+      body: JSON.stringify({usePaymentSdk: false, offerId: offerId})
     };
 
     const r = await fetch(url, options);
@@ -139,11 +139,16 @@ app.post("/api/prebook", async (req, res) => {
 
 // Complete hotel booking
 app.post("/api/book", async (req, res) => {
-  const { holder, payment, guests, prebookId } = req.body;
+  const { holder, payment, guests, prebookId, guestPayment } = req.body;
   
-  console.log("Booking request received:", { holder, payment, guests, prebookId });
+  console.log("Booking request received:", { holder, guestPayment, payment, guests, prebookId });
   
   try {
+    // Validate API key first
+    if (!LITEAPI_KEY) {
+      return res.status(500).json({ error: "LITEAPI_KEY not configured" });
+    }
+    
     // Validate required fields
     if (!holder || !guests || !prebookId) {
       return res.status(400).json({ 
@@ -163,10 +168,16 @@ app.post("/api/book", async (req, res) => {
       return res.status(400).json({ error: "At least one guest is required" });
     }
     
-    // Use primary guest for LiteAPI guestInfo (API expects single guest format)
-    const primaryGuest = guests[0];
+    const url = "https://book.liteapi.travel/v3.0/rates/book";
     
-    const url = "https://api.liteapi.travel/v3.0/hotels/rates/book";
+    let bookingBody = {
+        holder: holder,
+        guestPayment: guestPayment,
+        payment: payment,
+        guests: guests,
+        prebookId: prebookId
+      };
+    
     const options = {
       method: "POST",
       headers: {
@@ -174,27 +185,40 @@ app.post("/api/book", async (req, res) => {
         "content-type": "application/json",
         "X-API-Key": LITEAPI_KEY,
       },
-      body: JSON.stringify({
-        prebookId: prebookId,
-        guestInfo: {
-          guestFirstName: primaryGuest.firstName,
-          guestLastName: primaryGuest.lastName,
-          guestEmail: primaryGuest.email,
-          guestPhoneNumber: primaryGuest.phone
-        },
-        paymentMethod: payment?.method === "TRANSACTION_ID" ? "NUITEE_PAY" : "PROPERTY_PAY",
-        holderName: `${holder.firstName} ${holder.lastName}`,
-        paymentMethodId: payment?.transactionId || "pm_gumdrop_" + Math.random().toString(36).substr(2, 12)
-      }),
+      body: JSON.stringify(bookingBody),
     };
 
-    console.log("Sending to LiteAPI:", JSON.stringify(options.body, null, 2));
+    // console.log("Sending to LiteAPI:", JSON.stringify(options.body, null, 2));
 
+    console.log("Making request to:", url);
+    console.log("Request options:", JSON.stringify(options, null, 2));
+    
     const r = await fetch(url, options);
-    const j = await r.json();
+    console.log("Response status:", r.status);
+    console.log("Response headers:", Object.fromEntries(r.headers));
+    
+    const responseText = await r.text();
+    console.log("Raw response body:", responseText);
+    console.log("Response body length:", responseText.length);
+    
+    if (!responseText || responseText.trim() === '') {
+      console.log("Empty response detected!");
+      return res.status(500).json({ 
+        error: "Empty response from API", 
+        status: r.status,
+        headers: Object.fromEntries(r.headers)
+      });
+    }
+    
+    let j;
+    try {
+      j = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      return res.status(500).json({ error: "Invalid JSON response from API", raw: responseText });
+    }
     
     console.log("LiteAPI Response:", j);
-    
     if (!r.ok) {
       return res.status(r.status).json({ error: j.message || "Booking failed", details: j });
     }
