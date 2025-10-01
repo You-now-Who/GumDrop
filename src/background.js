@@ -36,6 +36,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     handleGetPlan(msg, sendResponse);
     return true; // async response
   }
+  if (msg.action === 'openPopup') {
+    // Open the extension popup by creating a new tab or triggering the popup
+    console.log('Opening popup from injected price badge');
+    chrome.action.openPopup().catch((error) => {
+      console.log('Cannot open popup programmatically, opening in new tab instead');
+      // Fallback: open popup.html in a new tab
+      chrome.tabs.create({ 
+        url: chrome.runtime.getURL('popup.html'),
+        active: true,
+        width: 400,
+        height: 600
+      });
+    });
+  }
 });
 
 async function handleGetPlan(msg, sendResponse) {

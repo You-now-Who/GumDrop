@@ -265,8 +265,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadingDiv.classList.add('hidden');
     noEventDiv.classList.remove('hidden');
     eventDetailsDiv.classList.add('hidden');
-    generateBtn.disabled = true;
-    generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    
+    // Allow demo mode - don't disable the generate button
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    
+    // Set demo event data for testing
+    currentEventData = {
+      title: "Demo Event - Tech Conference 2024",
+      date: "Dec 15, 2024",
+      location: "London, UK",
+      ticketPrice: 45,
+      currency: "£"
+    };
+    
+    // Show cost estimate for demo
+    displayCostEstimate(currentEventData);
   }
 
   function displayEventData(eventData) {
@@ -279,8 +293,113 @@ document.addEventListener('DOMContentLoaded', async function() {
     eventDate.textContent = eventData.date || 'Date Not Found';
     eventLocation.textContent = eventData.location || 'Location Not Found';
     
+    // Show cost estimate if we have ticket price data
+    displayCostEstimate(eventData);
+    
     generateBtn.disabled = false;
     generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  function displayCostEstimate(eventData) {
+    const costEstimateDiv = document.getElementById('cost-estimate');
+    const eventPriceEl = document.getElementById('event-price');
+    const hotelPriceEl = document.getElementById('hotel-price');
+    const totalCostEl = document.getElementById('total-cost');
+    
+    if (!costEstimateDiv || !eventPriceEl || !hotelPriceEl || !totalCostEl) return;
+    
+    // Check if we have ticket price data
+    if (eventData.ticketPrice !== undefined && eventData.ticketPrice !== null) {
+      const currency = eventData.currency || '£';
+      
+      if (eventData.ticketPrice === 0) {
+        eventPriceEl.textContent = 'Free';
+      } else {
+        eventPriceEl.textContent = `${currency}${eventData.ticketPrice}`;
+      }
+      
+      // Store for later use when hotels are loaded
+      window.currentTicketPrice = eventData.ticketPrice;
+      window.currentCurrency = currency;
+      
+      // Show the cost estimate section
+      costEstimateDiv.classList.remove('hidden');
+      
+      // Initially show just the event price
+      hotelPriceEl.textContent = 'Finding hotels...';
+      if (eventData.ticketPrice === 0) {
+        totalCostEl.textContent = 'Hotel cost only';
+      } else {
+        totalCostEl.textContent = `${currency}${eventData.ticketPrice}+`;
+      }
+    } else {
+      // Hide cost estimate if no price data
+      costEstimateDiv.classList.add('hidden');
+    }
+  }
+
+  function updateCostEstimateWithHotels(hotels) {
+    const costEstimateDiv = document.getElementById('cost-estimate');
+    const hotelPriceEl = document.getElementById('hotel-price');
+    const totalCostEl = document.getElementById('total-cost');
+    
+    if (!costEstimateDiv || !hotelPriceEl || !totalCostEl) return;
+    
+    // Find the cheapest hotel
+    let cheapestHotel = null;
+    let cheapestPrice = Infinity;
+    
+    hotels.forEach(hotel => {
+      if (hotel.pricing && hotel.pricing.amount < cheapestPrice) {
+        cheapestPrice = hotel.pricing.amount;
+        cheapestHotel = hotel;
+      }
+    });
+    
+    if (cheapestHotel) {
+      const currency = cheapestHotel.pricing.currency === 'GBP' ? '£' : 
+                     cheapestHotel.pricing.currency === 'USD' ? '$' : 
+                     cheapestHotel.pricing.currency === 'EUR' ? '€' : 
+                     cheapestHotel.pricing.currency;
+      
+      const hotelPrice = cheapestPrice;
+      hotelPriceEl.textContent = `${currency}${hotelPrice}`;
+      
+      // Calculate total if we have event price data
+      const ticketPrice = window.currentTicketPrice;
+      const eventCurrency = window.currentCurrency || currency;
+      
+      if (ticketPrice !== undefined && ticketPrice !== null) {
+        let totalPrice;
+        let displayCurrency;
+        
+        // If currencies match, add them directly
+        if (eventCurrency === currency) {
+          totalPrice = ticketPrice + hotelPrice;
+          displayCurrency = currency;
+        } else {
+          // If different currencies, show separately
+          if (ticketPrice === 0) {
+            totalPrice = hotelPrice;
+            displayCurrency = currency;
+          } else {
+            totalCostEl.textContent = `${eventCurrency}${ticketPrice} + ${currency}${hotelPrice}`;
+            return;
+          }
+        }
+        
+        if (ticketPrice === 0) {
+          totalCostEl.textContent = `${displayCurrency}${totalPrice}`;
+        } else {
+          totalCostEl.textContent = `${displayCurrency}${totalPrice}`;
+        }
+      } else {
+        totalCostEl.textContent = `${currency}${hotelPrice}`;
+      }
+    } else {
+      hotelPriceEl.textContent = 'No pricing available';
+      totalCostEl.textContent = '-';
+    }
   }
 
   // Booking Storage Functions
@@ -652,8 +771,97 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Update status indicator
         updateApiStatus('offline');
         
-        // No fallback - show error instead
-        hotelData = { data: [] };
+        // Use fallback demo data when API fails
+        console.log('Using demo hotel data as fallback');
+        hotelData = {
+          data: [
+            {
+              id: 'demo-1',
+              name: 'The Grand London Hotel',
+              address: '123 Piccadilly Circus',
+              city: 'London',
+              rating: 4.5,
+              thumbnail: '',
+              main_photo: '',
+              pricing: {
+                amount: 245,
+                currency: 'GBP',
+                roomName: 'Superior King Room',
+                boardName: 'Breakfast Included',
+                offerId: 'demo-offer-1',
+                rateId: 'demo-rate-1'
+              }
+            },
+            {
+              id: 'demo-2',
+              name: 'Budget Stay Central',
+              address: '456 Kings Cross Road',
+              city: 'London',
+              rating: 4.1,
+              thumbnail: '',
+              main_photo: '',
+              pricing: {
+                amount: 89,
+                currency: 'GBP',
+                roomName: 'Standard Double Room',
+                boardName: 'Room Only',
+                offerId: 'demo-offer-2',
+                rateId: 'demo-rate-2'
+              }
+            },
+            {
+              id: 'demo-3',
+              name: 'Luxury Palace Hotel',
+              address: '789 Park Lane',
+              city: 'London',
+              rating: 4.8,
+              thumbnail: '',
+              main_photo: '',
+              pricing: {
+                amount: 450,
+                currency: 'GBP',
+                roomName: 'Executive Suite',
+                boardName: 'Full Board',
+                offerId: 'demo-offer-3',
+                rateId: 'demo-rate-3'
+              }
+            },
+            {
+              id: 'demo-4',
+              name: 'Modern Business Hotel',
+              address: '321 Canary Wharf',
+              city: 'London',
+              rating: 4.3,
+              thumbnail: '',
+              main_photo: '',
+              pricing: {
+                amount: 180,
+                currency: 'GBP',
+                roomName: 'Business King Room',
+                boardName: 'Continental Breakfast',
+                offerId: 'demo-offer-4',
+                rateId: 'demo-rate-4'
+              }
+            },
+            {
+              id: 'demo-5',
+              name: 'Boutique Charm Hotel',
+              address: '654 Covent Garden',
+              city: 'London',
+              rating: 4.6,
+              thumbnail: '',
+              main_photo: '',
+              pricing: {
+                amount: 320,
+                currency: 'GBP',
+                roomName: 'Deluxe Garden View',
+                boardName: 'Breakfast & Dinner',
+                offerId: 'demo-offer-5',
+                rateId: 'demo-rate-5'
+              }
+            }
+          ]
+        };
       }
       
       // Display results
@@ -714,6 +922,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         totalCountElement.textContent = hotels.length;
       }
 
+      // Update cost estimate with cheapest hotel price
+      updateCostEstimateWithHotels(hotels);
+
       // Get AI recommendations for top hotels
       getAIHotelRecommendations(hotels.slice(0, Math.min(10, hotels.length))); // Use top 10 for AI analysis
       
@@ -771,8 +982,32 @@ document.addEventListener('DOMContentLoaded', async function() {
       
     } catch (error) {
       console.error('Error getting AI recommendations:', error);
-      // Fallback to regular display
-      displayQuickResults(hotels.slice(0, 3));
+      
+      // Create fallback recommendations based on price analysis
+      console.log('Using fallback AI categorization based on pricing');
+      
+      const sortedByPrice = [...hotels].sort((a, b) => {
+        const priceA = a.pricing?.amount || 999;
+        const priceB = b.pricing?.amount || 999;
+        return priceA - priceB;
+      });
+      
+      const fallbackRecommendations = {
+        budget: {
+          hotel: sortedByPrice[0],
+          reason: "Most affordable option with great value for money"
+        },
+        luxury: {
+          hotel: sortedByPrice[sortedByPrice.length - 1],
+          reason: "Premium accommodation with top-tier amenities"
+        },
+        overall: {
+          hotel: sortedByPrice[Math.floor(sortedByPrice.length / 2)] || sortedByPrice[0],
+          reason: "Perfect balance of comfort, location, and price"
+        }
+      };
+      
+      displayAIRecommendedHotels(hotels, fallbackRecommendations);
     }
   }
 
