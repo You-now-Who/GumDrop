@@ -706,7 +706,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         },
         body: JSON.stringify({
           // rateId: hotelData.rateId,
-          offerId: hotelData.pricing.offerId
+          offerId: hotelData.pricing.offerId,
+          usePaymentSdk: true // Enable LiteAPI Payment SDK
         })
       });
       
@@ -1271,10 +1272,10 @@ document.addEventListener('DOMContentLoaded', async function() {
       addGuestForm();
     });
     
-    // Confirm booking handler
+    // Pay & Book button handler
     confirmBtn?.addEventListener('click', async () => {
       const originalText = confirmBtn.innerHTML;
-      confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Processing...';
+      confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Preparing Payment...';
       confirmBtn.disabled = true;
       
       try {
@@ -1283,109 +1284,127 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!prebookData || prebookData.isDemo) {
           // Demo booking - just simulate
           await new Promise(resolve => setTimeout(resolve, 2000));
-          confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Demo Booking Complete!';
-        } else {
-          // Real booking via API
-          console.log('Confirming booking for prebook ID:', prebookData.prebookId);
+          confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Demo Complete!';
           
-          // Collect holder information from form
-          const holder = {
-            firstName: document.getElementById('holder-firstname').value.trim(),
-            lastName: document.getElementById('holder-lastname').value.trim(),
-            email: document.getElementById('holder-email').value.trim(),
-            phone: document.getElementById('holder-phone').value.trim()
-          };
+          setTimeout(() => {
+            modal.classList.add('hidden');
+            confirmBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+          }, 2000);
           
-          // Validate holder information
-          if (!holder.firstName || !holder.lastName || !holder.email || !holder.phone) {
-            throw new Error('Please fill in all holder information fields');
-          }
-          
-          // Collect guest information
-          const guests = [];
-          const guestForms = document.querySelectorAll('.guest-form');
-          
-          guestForms.forEach((form, index) => {
-            const guestData = {
-              occupancyNumber: index + 1,
-              firstName: form.querySelector('.guest-firstname').value.trim(),
-              lastName: form.querySelector('.guest-lastname').value.trim(),
-              email: form.querySelector('.guest-email').value.trim(),
-              phone: form.querySelector('.guest-phone').value.trim(),
-              remarks: form.querySelector('.guest-remarks').value.trim() || ''
-            };
-            
-            // Validate guest information (at least first guest is required)
-            if (index === 0 && (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone)) {
-              throw new Error('Please fill in all information for Guest 1 (Primary)');
-            }
-            
-            // Only add guest if they have required fields filled
-            if (guestData.firstName && guestData.lastName && guestData.email && guestData.phone) {
-              guests.push(guestData);
-            }
-          });
-          
-          // Ensure we have at least one guest
-          if (guests.length === 0) {
-            throw new Error('At least one guest is required');
-          }
-          
-          // Get payment method
-          const paymentMethod = document.querySelector('input[name="payment-method"]:checked')?.value || 'TRANSACTION_ID';
-          
-          const bookingPayload = {
-            holder: holder,
-            payment: {
-              method: paymentMethod,
-              transactionId: 'gmd_' + Math.random().toString(36).substr(2, 16) // Generate temporary transaction ID
-            },
-            guests: guests,
-            prebookId: prebookData.prebookId
-          };
-          
-          console.log('Booking payload:', bookingPayload);
-          
-          const bookingResponse = await fetch('http://localhost:3000/api/book', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(bookingPayload)
-          });
-          
-          if (!bookingResponse.ok) {
-            throw new Error(`Booking failed: ${bookingResponse.status}`);
-          }
-          
-          const bookingResult = await bookingResponse.json();
-          console.log('Booking confirmed:', bookingResult);
-          
-          confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Booking Confirmed!';
+          return;
         }
         
-        confirmBtn.className = 'w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg';
+        // Validate and collect form data for real booking
+        console.log('Preparing payment for prebook ID:', prebookData.prebookId);
         
-        // Auto-close modal after success
+        // Collect holder information from form
+        const holder = {
+          firstName: document.getElementById('holder-firstname').value.trim(),
+          lastName: document.getElementById('holder-lastname').value.trim(),
+          email: document.getElementById('holder-email').value.trim(),
+          phone: document.getElementById('holder-phone').value.trim()
+        };
+        
+        // Validate holder information
+        if (!holder.firstName || !holder.lastName || !holder.email || !holder.phone) {
+          throw new Error('Please fill in all holder information fields');
+        }
+        
+        // Collect guest information
+        const guests = [];
+        const guestForms = document.querySelectorAll('.guest-form');
+        
+        guestForms.forEach((form, index) => {
+          const guestData = {
+            occupancyNumber: index + 1,
+            firstName: form.querySelector('.guest-firstname').value.trim(),
+            lastName: form.querySelector('.guest-lastname').value.trim(),
+            email: form.querySelector('.guest-email').value.trim(),
+            phone: form.querySelector('.guest-phone').value.trim(),
+            remarks: form.querySelector('.guest-remarks').value.trim() || ''
+          };
+          
+          // Validate guest information (at least first guest is required)
+          if (index === 0 && (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone)) {
+            throw new Error('Please fill in all information for Guest 1 (Primary)');
+          }
+          
+          // Only add guest if they have required fields filled
+          if (guestData.firstName && guestData.lastName && guestData.email && guestData.phone) {
+            guests.push(guestData);
+          }
+        });
+        
+        // Ensure we have at least one guest
+        if (guests.length === 0) {
+          throw new Error('At least one guest is required');
+        }
+        
+        // Check if we have payment credentials from prebook
+        if (!prebookData.secretKey || !prebookData.transactionId) {
+          throw new Error('Payment credentials not available. Please try again.');
+        }
+        
+        // Prepare payment data
+        const paymentData = {
+          secretKey: prebookData.secretKey,
+          transactionId: prebookData.transactionId,
+          prebookId: prebookData.prebookId,
+          bookingFormData: {
+            holder: holder,
+            guests: guests
+          },
+          bookingSummary: {
+            hotelName: document.getElementById('hotel-name-display').textContent,
+            roomName: document.getElementById('room-name').textContent,
+            guestName: `${holder.firstName} ${holder.lastName}`,
+            totalPrice: parseFloat(document.getElementById('total-price-display').textContent.replace(/[^0-9.]/g, '')),
+            currency: document.getElementById('total-price-display').textContent.includes('$') ? 'USD' : 'GBP'
+          }
+        };
+        
+        // Store payment data on backend to avoid CSP issues
+        const storeResponse = await fetch('http://localhost:3000/api/payment-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentData })
+        });
+        
+        if (!storeResponse.ok) {
+          throw new Error('Failed to prepare payment data');
+        }
+        
+        const { dataId } = await storeResponse.json();
+        
+        // Open backend-hosted payment page (no CSP restrictions)
+        const paymentUrl = `http://localhost:3000/payment?data=${dataId}`;
+        chrome.tabs.create({ url: paymentUrl });
+        
+        // Reset button and close modal
+        confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>Payment Window Opened';
+        confirmBtn.className = 'flex-2 bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg';
+        
+        // Auto-close modal after opening payment
         setTimeout(() => {
           modal.classList.add('hidden');
           confirmBtn.innerHTML = originalText;
           confirmBtn.disabled = false;
-          confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+          confirmBtn.className = 'flex-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
         }, 2000);
         
       } catch (error) {
-        console.error('Booking confirmation error:', error);
+        console.error('Payment preparation error:', error);
         
         // Show error state
-        confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Booking Failed';
-        confirmBtn.className = 'w-full bg-red-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg';
+        confirmBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Error: ' + error.message.substring(0, 20);
+        confirmBtn.className = 'flex-2 bg-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg';
         
         // Reset after 3 seconds
         setTimeout(() => {
           confirmBtn.innerHTML = originalText;
           confirmBtn.disabled = false;
-          confirmBtn.className = 'w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
+          confirmBtn.className = 'flex-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200';
         }, 3000);
       }
     });
