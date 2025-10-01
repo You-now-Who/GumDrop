@@ -282,8 +282,21 @@ app.post("/api/geolocate", async (req, res) => {
 // Payment data storage (use Redis/Database in production)
 const paymentDataStore = {};
 
-// Serve payment page (avoids CSP issues)
-app.get("/payment", (req, res) => {
+// Extension API Key for security - should match extension
+const EXTENSION_API_KEY = process.env.EXTENSION_API_KEY || 'gmd_secure_extension_key_2024';
+console.log('Extension API Key configured');
+
+// Middleware to verify extension requests
+function verifyExtensionAccess(req, res, next) {
+  const apiKey = req.headers['x-extension-key'] || req.query.key;
+  if (apiKey !== EXTENSION_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid extension key' });
+  }
+  next();
+}
+
+// Serve payment page (avoids CSP issues) - PROTECTED
+app.get("/payment", verifyExtensionAccess, (req, res) => {
   const { data } = req.query;
   
   const paymentHTML = `
@@ -383,9 +396,10 @@ app.get("/payment", (req, res) => {
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const paymentDataKey = urlParams.get('data');
+    const apiKey = urlParams.get('key');
     
-    if (paymentDataKey) {
-      fetch('/api/payment-data/' + paymentDataKey)
+    if (paymentDataKey && apiKey) {
+      fetch('/api/payment-data/' + paymentDataKey + '?key=' + apiKey)
         .then(r => r.json())
         .then(paymentData => {
           console.log('Payment data loaded:', paymentData);
@@ -409,7 +423,10 @@ app.get("/payment", (req, res) => {
           // Store booking data for completion
           fetch('/api/store-booking-data', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-Extension-Key': apiKey
+            },
             body: JSON.stringify({
               transactionId: transactionId,
               bookingData: paymentData.bookingFormData,
@@ -451,8 +468,8 @@ app.get("/payment", (req, res) => {
   res.send(paymentHTML);
 });
 
-// Store payment data endpoint  
-app.post("/api/payment-data", (req, res) => {
+// Store payment data endpoint - PROTECTED  
+app.post("/api/payment-data", verifyExtensionAccess, (req, res) => {
   const { paymentData } = req.body;
   const dataId = 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   
@@ -466,8 +483,8 @@ app.post("/api/payment-data", (req, res) => {
   res.json({ dataId });
 });
 
-// Get payment data endpoint
-app.get("/api/payment-data/:dataId", (req, res) => {
+// Get payment data endpoint - PROTECTED
+app.get("/api/payment-data/:dataId", verifyExtensionAccess, (req, res) => {
   const paymentData = paymentDataStore[req.params.dataId];
   if (paymentData) {
     res.json(paymentData);
@@ -476,8 +493,8 @@ app.get("/api/payment-data/:dataId", (req, res) => {
   }
 });
 
-// Store booking data for completion
-app.post("/api/store-booking-data", (req, res) => {
+// Store booking data for completion - PROTECTED
+app.post("/api/store-booking-data", verifyExtensionAccess, (req, res) => {
   const { transactionId, bookingData, prebookId } = req.body;
   paymentDataStore['booking_' + transactionId] = { bookingData, prebookId };
   res.json({ success: true });

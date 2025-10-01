@@ -10,7 +10,8 @@
   "host_permissions": [
     "*://*.eventbrite.com/*",
     "*://*.eventbrite.co.uk/*",
-    "http://localhost:3000/"
+    "http://localhost:3000/*",
+    "https://payment-wrapper.liteapi.travel/*"
   ],
   "action": {
     "default_popup": "popup.html",

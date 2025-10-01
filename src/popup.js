@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Load and display user name
   loadUserName();
 
+  // Extension API key for backend authentication
+  const EXTENSION_API_KEY = 'gmd_secure_extension_key_2024'; // This should match backend
+
   const generateBtn = document.getElementById('generate-btn');
   const loadingDiv = document.getElementById('loading');
   const noEventDiv = document.getElementById('no-event');
@@ -1367,7 +1370,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Store payment data on backend to avoid CSP issues
         const storeResponse = await fetch('http://localhost:3000/api/payment-data', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Extension-Key': EXTENSION_API_KEY
+          },
           body: JSON.stringify({ paymentData })
         });
         
@@ -1378,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const { dataId } = await storeResponse.json();
         
         // Open backend-hosted payment page (no CSP restrictions)
-        const paymentUrl = `http://localhost:3000/payment?data=${dataId}`;
+        const paymentUrl = `http://localhost:3000/payment?data=${dataId}&key=${EXTENSION_API_KEY}`;
         chrome.tabs.create({ url: paymentUrl });
         
         // Reset button and close modal
