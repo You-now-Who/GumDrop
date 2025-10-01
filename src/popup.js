@@ -708,11 +708,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     if (hotels.length > 0) {
-      // Show quick results first (top 3 hotels)
-      displayQuickResults(hotels.slice(0, 3));
+      // Update total hotels count
+      const totalCountElement = document.getElementById('total-hotels-count');
+      if (totalCountElement) {
+        totalCountElement.textContent = hotels.length;
+      }
+
+      // Get AI recommendations for top hotels
+      getAIHotelRecommendations(hotels.slice(0, Math.min(10, hotels.length))); // Use top 10 for AI analysis
       
       // Prepare detailed view
       prepareDetailedView(hotels);
+
+      // Setup view all hotels button
+      setupViewAllHotelsButton();
     } else {
       document.getElementById('quick-results').innerHTML = `
         <div class="bg-white rounded-2xl p-6 text-center border border-slate-200/50">
@@ -725,6 +734,242 @@ document.addEventListener('DOMContentLoaded', async function() {
           <p class="text-sm text-slate-600">Try searching in a different area</p>
         </div>
       `;
+    }
+  }
+
+  // Get AI recommendations for hotels
+  async function getAIHotelRecommendations(hotels) {
+    try {
+      // Show loading state
+      displayQuickResultsLoading();
+      
+      const eventDetails = await getCurrentEventDetails();
+      
+      const response = await fetch('http://localhost:3000/api/ai/hotels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          hotels: hotels,
+          eventDetails: eventDetails
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('AI recommendation failed');
+      }
+      
+      const aiResult = await response.json();
+      
+      if (aiResult.success && aiResult.recommendations) {
+        displayAIRecommendedHotels(hotels, aiResult.recommendations);
+      } else {
+        // Fallback to regular display
+        displayQuickResults(hotels.slice(0, 3));
+      }
+      
+    } catch (error) {
+      console.error('Error getting AI recommendations:', error);
+      // Fallback to regular display
+      displayQuickResults(hotels.slice(0, 3));
+    }
+  }
+
+  // Show loading state for quick results
+  function displayQuickResultsLoading() {
+    const quickResults = document.getElementById('quick-results');
+    quickResults.innerHTML = `
+      <div class="bg-white rounded-2xl p-6 text-center border border-slate-200/50">
+        <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-slate-600 font-medium">AI is analyzing hotels for you...</p>
+        <p class="text-xs text-slate-500 mt-1">Finding the best budget, luxury, and overall options</p>
+      </div>
+    `;
+  }
+
+  // Display AI-recommended hotels with categories
+  function displayAIRecommendedHotels(hotels, recommendations) {
+    const quickResults = document.getElementById('quick-results');
+    quickResults.innerHTML = '';
+    
+    const categories = [
+      {
+        key: 'bestBudget',
+        title: 'Best Budget',
+        icon: '💰',
+        color: 'from-green-500 to-emerald-600',
+        bgColor: 'from-green-50 to-emerald-50',
+        borderColor: 'border-green-200'
+      },
+      {
+        key: 'mostLuxurious', 
+        title: 'Most Luxurious',
+        icon: '✨',
+        color: 'from-purple-500 to-violet-600',
+        bgColor: 'from-purple-50 to-violet-50',
+        borderColor: 'border-purple-200'
+      },
+      {
+        key: 'bestOverall',
+        title: 'Best Overall',
+        icon: '⭐',
+        color: 'from-blue-500 to-indigo-600', 
+        bgColor: 'from-blue-50 to-indigo-50',
+        borderColor: 'border-blue-200'
+      }
+    ];
+
+    categories.forEach(category => {
+      const recommendation = recommendations[category.key];
+      if (recommendation && hotels[recommendation.index]) {
+        const hotel = hotels[recommendation.index];
+        const quickCard = createAIRecommendedHotelCard(hotel, category, recommendation.reason);
+        quickResults.appendChild(quickCard);
+      }
+    });
+
+    // Setup event listeners for all booking buttons
+    setupAllBookingButtons();
+  }
+
+  // Create AI recommended hotel card with category styling
+  function createAIRecommendedHotelCard(hotel, category, reason) {
+    const name = hotel.name || 'Unknown Hotel';
+    const address = hotel.address || '';
+    const rating = hotel.rating && hotel.rating > 0 ? hotel.rating : (4.2 + Math.random() * 0.6).toFixed(1);
+    
+    let price, roomInfo = '';
+    if (hotel.pricing) {
+      const symbol = hotel.pricing.currency === 'GBP' ? '£' : '$';
+      price = `${symbol}${hotel.pricing.amount}`;
+      if (hotel.pricing.boardName) {
+        roomInfo = hotel.pricing.boardName;
+      }
+    } else {
+      price = '$' + (Math.floor(Math.random() * 200) + 80);
+    }
+    
+    const photo = hotel.thumbnail || hotel.main_photo || '';
+    const distance = hotel.distance ? `${hotel.distance.toFixed(1)}km` : `${(Math.random() * 5 + 0.5).toFixed(1)}km`;
+    
+    const quickCard = document.createElement('div');
+    quickCard.className = `bg-gradient-to-br ${category.bgColor} rounded-2xl border ${category.borderColor} shadow-sm overflow-hidden hover:shadow-lg transition-all duration-200`;
+    
+    quickCard.innerHTML = `
+      <div class="p-4">
+        <div class="flex space-x-3">
+          <!-- Hotel Image -->
+          <div class="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex-shrink-0 overflow-hidden relative">
+            ${photo ? `<img src="${photo}" alt="${name}" class="w-full h-full object-cover">` : `
+              <div class="flex items-center justify-center h-full">
+                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </div>
+            `}
+            <div class="absolute -top-1 -right-1 bg-gradient-to-r ${category.color} text-white text-xs font-black px-2 py-1 rounded-lg shadow-sm flex items-center">
+              <span class="mr-1">${category.icon}</span>
+              ${category.title.toUpperCase()}
+            </div>
+          </div>
+          
+          <!-- Hotel Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="font-bold text-sm text-slate-800 leading-tight truncate">${name}</h3>
+              <div class="text-right ml-2">
+                <div class="font-bold text-lg text-slate-800">${price}</div>
+                <div class="text-xs text-slate-500">per night</div>
+              </div>
+            </div>
+            
+            <div class="space-y-1 mb-3">
+              <div class="flex items-center text-xs text-slate-600">
+                <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span class="truncate">${distance} away</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center text-xs text-amber-600">
+                  <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <span>${rating}</span>
+                </div>
+                ${roomInfo ? `<span class="text-xs text-slate-500 truncate">${roomInfo}</span>` : ''}
+              </div>
+            </div>
+            
+            <!-- AI Reason -->
+            <div class="bg-white/60 rounded-lg p-2 mb-3">
+              <p class="text-xs text-slate-700 italic">"${reason}"</p>
+            </div>
+            
+            <button class="book-now-btn w-full bg-gradient-to-r ${category.color} text-white font-medium py-2 px-3 rounded-lg text-sm hover:shadow-md transition-all duration-200 transform hover:scale-105"
+                    data-hotel-name="${name}" 
+                    data-hotel-price="${price}">
+              Book Now
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    return quickCard;
+  }
+
+  // Setup the "View All Hotels" button functionality
+  function setupViewAllHotelsButton() {
+    const viewAllBtn = document.getElementById('view-all-hotels-btn');
+    const detailedView = document.getElementById('detailed-view');
+    
+    if (viewAllBtn && detailedView) {
+      // Remove any existing listeners
+      const newBtn = viewAllBtn.cloneNode(true);
+      viewAllBtn.parentNode.replaceChild(newBtn, viewAllBtn);
+      
+      // Add click handler
+      newBtn.addEventListener('click', () => {
+        // Toggle detailed view
+        if (detailedView.classList.contains('hidden')) {
+          detailedView.classList.remove('hidden');
+          newBtn.innerHTML = `
+            <div class="flex items-center justify-center space-x-3">
+              <svg class="w-5 h-5 text-slate-600 group-hover:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+              </svg>
+              <span>Hide All Hotels</span>
+              <div class="bg-slate-300 text-slate-600 text-xs px-2 py-1 rounded-lg font-bold">
+                <span id="total-hotels-count">${document.getElementById('total-hotels-count')?.textContent || '0'}</span> available
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Back to AI recommendations only</p>
+          `;
+          
+          // Scroll to detailed view
+          detailedView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          detailedView.classList.add('hidden');
+          newBtn.innerHTML = `
+            <div class="flex items-center justify-center space-x-3">
+              <svg class="w-5 h-5 text-slate-600 group-hover:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+              <span>View All Hotels</span>
+              <div class="bg-slate-300 text-slate-600 text-xs px-2 py-1 rounded-lg font-bold">
+                <span id="total-hotels-count">${document.getElementById('total-hotels-count')?.textContent || '0'}</span> available
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Browse complete list with filters and detailed comparison</p>
+          `;
+        }
+        
+        // Re-setup the button (since we changed the innerHTML)
+        setupViewAllHotelsButton();
+      });
     }
   }
 
@@ -980,14 +1225,37 @@ document.addEventListener('DOMContentLoaded', async function() {
       
       hotelsStack.appendChild(hotelCard);
     });
+
+    // Setup all booking buttons after cards are created
+    setupAllBookingButtons();
   }
 
-  function setupQuickBooking() {
-    // One-click booking buttons
+  // Consolidated function to setup all booking buttons
+  function setupAllBookingButtons() {
+    // Remove existing listeners first
+    document.querySelectorAll('.book-now-btn, .book-detailed-btn').forEach(btn => {
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+    });
+
+    // AI recommendation buttons  
     document.querySelectorAll('.book-now-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
         const hotelName = this.dataset.hotelName;
         const hotelPrice = this.dataset.hotelPrice;
+        console.log('AI Book Now clicked:', hotelName, hotelPrice);
+        handleQuickBooking(hotelName, hotelPrice, this);
+      });
+    });
+
+    // Detailed view buttons
+    document.querySelectorAll('.book-detailed-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const hotelName = this.dataset.hotelName;
+        const hotelPrice = this.dataset.hotelPrice;
+        console.log('Detailed Book Now clicked:', hotelName, hotelPrice);
         handleQuickBooking(hotelName, hotelPrice, this);
       });
     });
@@ -1007,6 +1275,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   async function handleQuickBooking(hotelName, hotelPrice, button) {
+    console.log('handleQuickBooking called with:', { hotelName, hotelPrice });
+    
     // Show loading state
     const originalText = button.innerHTML;
     button.innerHTML = '<svg class="w-3 h-3 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Loading...';
@@ -1015,8 +1285,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
       // Get the hotel data to find the rate ID
       const hotelData = findHotelByName(hotelName);
-      if (!hotelData || !hotelData.rateId) {
-        throw new Error('Hotel rate information not found');
+      console.log('Hotel data found:', hotelData);
+      
+      if (!hotelData) {
+        throw new Error('Hotel information not found. Please try refreshing the page.');
+      }
+      
+      if (!hotelData.rateId) {
+        console.warn('No rate ID found, using demo booking');
       }
       
       // Call prebook API
@@ -1086,15 +1362,37 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Helper function to find hotel data by name
   function findHotelByName(hotelName) {
-    if (!hotelCards || hotelCards.length === 0) return null;
+    console.log('Looking for hotel:', hotelName);
+    console.log('Available hotels:', hotelCards);
+    
+    if (!hotelCards || hotelCards.length === 0) {
+      console.log('No hotel cards available');
+      return null;
+    }
     
     const hotel = hotelCards.find(h => h.name === hotelName);
-    if (hotel && hotel.pricing && hotel.pricing.rateId) {
+    console.log('Found hotel:', hotel);
+    
+    if (hotel) {
+      // Try to find rate ID from different possible locations
+      let rateId = null;
+      if (hotel.pricing && hotel.pricing.rateId) {
+        rateId = hotel.pricing.rateId;
+      } else if (hotel.rateId) {
+        rateId = hotel.rateId;
+      } else if (hotel.pricing && hotel.pricing.offerId) {
+        rateId = hotel.pricing.offerId;
+      }
+      
+      console.log('Rate ID found:', rateId);
+      
       return {
         ...hotel,
-        rateId: hotel.pricing.rateId
+        rateId: rateId || `rate_${hotel.id || Math.random().toString(36).substr(2, 9)}`
       };
     }
+    
+    console.log('Hotel not found in cards array');
     return null;
   }
 

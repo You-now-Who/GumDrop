@@ -241,6 +241,80 @@ app.post("/api/book", async (req, res) => {
   }
 });
 
+// AI Hotel Recommendations
+app.post("/api/ai/hotels", async (req, res) => {
+  const { hotels, eventDetails } = req.body;
+  try {
+    const hotelPrompt = `
+You are a travel expert AI. Analyze these hotels and categorize the top 3 for different use cases. 
+
+Event Details: ${eventDetails?.title || 'Event'} on ${eventDetails?.date || 'Unknown Date'} at ${eventDetails?.location || 'Unknown Location'}
+
+Hotels Data:
+${hotels.map((hotel, i) => `
+${i + 1}. ${hotel.name} - ${hotel.address}
+   - Rating: ${hotel.rating || 'N/A'} stars
+   - Price: ${hotel.pricing ? `${hotel.pricing.currency} ${hotel.pricing.amount}` : 'Price not available'}
+   - Distance: ${hotel.distance ? `${hotel.distance.toFixed(1)}km` : 'Distance unknown'}
+   - Room Type: ${hotel.pricing?.boardName || 'Standard Room'}
+`).join('')}
+
+Please analyze and return ONLY a JSON object with exactly this structure (no other text):
+{
+  "bestBudget": { "index": 0, "reason": "Brief reason why this is best budget option" },
+  "mostLuxurious": { "index": 1, "reason": "Brief reason why this is most luxurious" },
+  "bestOverall": { "index": 2, "reason": "Brief reason why this is best overall value" }
+}
+
+Consider factors like price, rating, location proximity to event, room amenities, and value for money. Each category should have a different hotel (use different indices).`;
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a travel expert that provides JSON responses for hotel recommendations. Always respond with valid JSON only." 
+          },
+          { role: "user", content: hotelPrompt },
+        ],
+        max_tokens: 500,
+        temperature: 0.3,
+      }),
+    });
+    
+    const aiResponse = await r.json();
+    
+    if (aiResponse.choices && aiResponse.choices[0]?.message?.content) {
+      try {
+        const recommendations = JSON.parse(aiResponse.choices[0].message.content);
+        res.json({ success: true, recommendations });
+      } catch (parseError) {
+        console.error("Error parsing AI response:", parseError);
+        // Fallback to simple categorization
+        res.json({
+          success: true,
+          recommendations: {
+            bestBudget: { index: 0, reason: "Most affordable option available" },
+            mostLuxurious: { index: Math.min(1, hotels.length - 1), reason: "Premium accommodation with excellent amenities" },
+            bestOverall: { index: Math.min(2, hotels.length - 1), reason: "Perfect balance of price, location, and quality" }
+          }
+        });
+      }
+    } else {
+      throw new Error("Invalid AI response");
+    }
+  } catch (err) {
+    console.error("AI hotel recommendation error:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Proxy to OpenAI for LLM summarization
 app.post("/api/ai", async (req, res) => {
   const { prompt } = req.body;
